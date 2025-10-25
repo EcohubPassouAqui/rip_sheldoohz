@@ -9,7 +9,7 @@ local UILibrary = {}
 UILibrary.Tabs = {}
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "CustomUI"
+ScreenGui.Name = "EcoHub - Premium | discord.gg/ecohub - By rip_sheldoohz"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = PlayerGui
@@ -55,7 +55,7 @@ Title.Name = "Title"
 Title.Size = UDim2.new(1, -100, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Custom UI"
+Title.Text = "EcoHub - Premium | By rip_sheldoohz"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 20
 Title.Font = Enum.Font.GothamBold
