@@ -1,1 +1,316 @@
+if getgenv().ecohub then warn("[EcoHub] : Already executed!") return end
+getgenv().ecohub = true
 
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local function gerarNome()
+    local prefixos = {"Game", "Ui", "System", "Core", "Module", "Data", "Config", "Asset"}
+    local sufixos = {"Manager", "Handler", "Service", "Controller", "Utility", "Helper"}
+    return prefixos[math.random(#prefixos)] .. sufixos[math.random(#sufixos)] .. tostring(math.random(100, 999))
+end
+
+local nomeProtegido = gerarNome()
+local timestamp = function() return "[" .. os.date("%H:%M:%S") .. "]" end
+
+local function obterServico(nome)
+    local ok, servico = pcall(function() return game:GetService(nome) end)
+    return ok and servico or nil
+end
+
+local Servicos = {
+    Players = obterServico("Players"),
+    RunService = obterServico("RunService"),
+    ReplicatedStorage = obterServico("ReplicatedStorage"),
+    UserInputService = obterServico("UserInputService"),
+    CoreGui = obterServico("CoreGui")
+}
+
+local jogador = Servicos.Players.LocalPlayer
+if not jogador then
+    Servicos.Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    jogador = Servicos.Players.LocalPlayer
+end
+
+local ehMobile = false
+pcall(function()
+    if Servicos.UserInputService then
+        ehMobile = Servicos.UserInputService.TouchEnabled and not Servicos.UserInputService.KeyboardEnabled
+    end
+end)
+
+print(timestamp() .. " [BYPASS] Iniciando sistema de protecao")
+print(timestamp() .. " [BYPASS] Plataforma: " .. (ehMobile and "Mobile" or "PC"))
+
+local Config = {
+    Ativo = true,
+    Executando = true,
+    ObjetosRemovidos = 0,
+    Conexoes = {},
+    IntervaloLimpeza = ehMobile and 90 or 30,
+    IntervaloMonitor = ehMobile and 60 or 20,
+    DelayProcessamento = ehMobile and 0.2 or 0.05,
+    MaxObjetosPorCiclo = ehMobile and 5 or 15,
+    UltimaLimpeza = 0,
+    UltimaVerificacao = 0
+}
+
+local padroesSuspeitos = {
+    "anticheat", "anti_cheat", "anticheats", "anticheat_", "_anticheat",
+    "ac_", "_ac", "detect", "detection", "detector",
+    "monitor", "monitoring", "guard", "security", "sec_",
+    "scanner", "scan", "watcher", "watch", "tracker", "track",
+    "admin", "moderator", "mod_", "check", "checker",
+    "ban", "kick", "report", "logger", "log_",
+    "exploit", "antiexploit", "protection", "protect"
+}
+
+local nomesProtegidos = {
+    "FluentUI", "Fluent", "Library", "MainFrame", "Container", 
+    "EcoHub", "Maximus", "Menu", "Interface", "GUI",
+    nomeProtegido
+}
+
+local function estaProtegido(obj)
+    if not obj or not obj.Name then return false end
+    local nome = obj.Name
+    
+    for _, protegido in ipairs(nomesProtegidos) do
+        if string.find(string.lower(nome), string.lower(protegido), 1, true) then
+            return true
+        end
+    end
+    
+    pcall(function()
+        if obj:IsDescendantOf(Servicos.CoreGui) then
+            return true
+        end
+    end)
+    
+    return false
+end
+
+local function contemSuspeito(nome)
+    if not nome or type(nome) ~= "string" then return false end
+    local minusculo = string.lower(nome)
+    
+    for _, padrao in ipairs(padroesSuspeitos) do
+        if string.find(minusculo, padrao, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function destruirSeguro(obj)
+    if not obj or not obj.Parent or estaProtegido(obj) then return false end
+    
+    local sucesso = pcall(function()
+        if obj:IsA("LocalScript") or obj:IsA("Script") or obj:IsA("ModuleScript") then
+            obj.Disabled = true
+            print(timestamp() .. " [BYPASS] Script desativado: " .. obj.Name)
+        end
+        
+        local nomeObj = obj.Name
+        obj.Parent = nil
+        obj:Destroy()
+        print(timestamp() .. " [BYPASS] Objeto removido: " .. nomeObj)
+    end)
+    
+    if sucesso then
+        Config.ObjetosRemovidos = Config.ObjetosRemovidos + 1
+        return true
+    end
+    return false
+end
+
+local function limpezaOtimizada()
+    local agora = tick()
+    if agora - Config.UltimaLimpeza < Config.IntervaloLimpeza then return end
+    Config.UltimaLimpeza = agora
+    
+    task.spawn(function()
+        if not Config.Ativo then return end
+        
+        local removidos = 0
+        
+        pcall(function()
+            if jogador and jogador.PlayerGui then
+                local guis = jogador.PlayerGui:GetChildren()
+                
+                for i = 1, math.min(#guis, Config.MaxObjetosPorCiclo) do
+                    if not Config.Ativo then break end
+                    
+                    local gui = guis[i]
+                    if gui and contemSuspeito(gui.Name) and not estaProtegido(gui) then
+                        if destruirSeguro(gui) then
+                            removidos = removidos + 1
+                        end
+                        task.wait(Config.DelayProcessamento)
+                    end
+                end
+                
+                if removidos > 0 then
+                    print(timestamp() .. " [BYPASS] Ciclo de limpeza: " .. removidos .. " objetos removidos")
+                    print(timestamp() .. " [BYPASS] Total acumulado: " .. Config.ObjetosRemovidos)
+                end
+            end
+        end)
+    end)
+end
+
+local function protecaoKick()
+    if not hookmetamethod then 
+        print(timestamp() .. " [BYPASS] AVISO: hookmetamethod nao disponivel")
+        return 
+    end
+    
+    pcall(function()
+        local original
+        original = hookmetamethod(game, "__namecall", function(self, ...)
+            local metodo = getnamecallmethod()
+            
+            if metodo == "Kick" then
+                if self == jogador or (self.Parent and self.Parent == jogador) then
+                    print(timestamp() .. " [BYPASS] Tentativa de KICK bloqueada")
+                    return nil
+                end
+            end
+            
+            if metodo == "Ban" or metodo == "BanAsync" then
+                print(timestamp() .. " [BYPASS] Tentativa de BAN bloqueada")
+                return nil
+            end
+            
+            return original(self, ...)
+        end)
+        
+        print(timestamp() .. " [BYPASS] Protecao contra Kick/Ban ativada")
+    end)
+end
+
+local function protecaoPainel()
+    pcall(function()
+        local metaIndex
+        metaIndex = hookmetamethod(game, "__index", function(self, key)
+            if Config.Ativo and estaProtegido(self) then
+                if key == "Visible" or key == "Enabled" then
+                    return true
+                end
+            end
+            return metaIndex(self, key)
+        end)
+        
+        print(timestamp() .. " [BYPASS] Protecao de painel ativada")
+    end)
+    
+    pcall(function()
+        local metaNewIndex
+        metaNewIndex = hookmetamethod(game, "__newindex", function(self, key, value)
+            if Config.Ativo and estaProtegido(self) then
+                if key == "Visible" or key == "Enabled" then
+                    if value == false then
+                        print(timestamp() .. " [BYPASS] Tentativa de esconder painel bloqueada")
+                        return
+                    end
+                end
+            end
+            return metaNewIndex(self, key, value)
+        end)
+    end)
+end
+
+local function monitorarGuis()
+    if not jogador or not jogador.PlayerGui then return end
+    
+    local conexao = jogador.PlayerGui.ChildAdded:Connect(function(filho)
+        if not Config.Ativo then return end
+        
+        task.delay(0.5, function()
+            if filho and contemSuspeito(filho.Name) and not estaProtegido(filho) then
+                print(timestamp() .. " [BYPASS] Nova GUI suspeita detectada: " .. filho.Name)
+                destruirSeguro(filho)
+            end
+        end)
+    end)
+    
+    table.insert(Config.Conexoes, conexao)
+    print(timestamp() .. " [BYPASS] Monitor de GUIs ativado")
+end
+
+local function iniciarMonitoramento()
+    local conexao = Servicos.RunService.Heartbeat:Connect(function()
+        if not Config.Ativo then return end
+        
+        local agora = tick()
+        
+        if agora - Config.UltimaVerificacao >= Config.IntervaloMonitor then
+            Config.UltimaVerificacao = agora
+            print(timestamp() .. " [BYPASS] Verificacao periodica | Objetos removidos: " .. Config.ObjetosRemovidos)
+        end
+        
+        limpezaOtimizada()
+    end)
+    
+    table.insert(Config.Conexoes, conexao)
+    print(timestamp() .. " [BYPASS] Monitoramento continuo ativado")
+end
+
+print(timestamp() .. " [BYPASS] Carregando protecoes")
+
+task.spawn(function()
+    task.wait(ehMobile and 3 or 1)
+    
+    pcall(protecaoKick)
+    task.wait(0.3)
+    
+    pcall(protecaoPainel)
+    task.wait(0.3)
+    
+    pcall(monitorarGuis)
+    task.wait(0.3)
+    
+    pcall(iniciarMonitoramento)
+    task.wait(0.3)
+    
+    pcall(limpezaOtimizada)
+    
+    print(timestamp() .. " [BYPASS] Sistema totalmente ativo")
+    print(timestamp() .. " [BYPASS] Protecao contra Kick/Ban: OK")
+    print(timestamp() .. " [BYPASS] Protecao de Painel: OK")
+    print(timestamp() .. " [BYPASS] Monitoramento: OK")
+end)
+
+_G.EcoHubBypass = {
+    Config = Config,
+    Estatisticas = function()
+        print(timestamp() .. " [BYPASS] Status: " .. (Config.Ativo and "Ativo" or "Inativo"))
+        print(timestamp() .. " [BYPASS] Objetos Removidos: " .. Config.ObjetosRemovidos)
+        print(timestamp() .. " [BYPASS] Conexoes Ativas: " .. #Config.Conexoes)
+    end
+}
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "EcoHub Fisch",
+    SubTitle = "discord.gg/ecohub - By rip_sheldoohz",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(550, 350),
+    Acrylic = false,
+    Theme = "dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+local Tabs = {
+    Inicio = Window:AddTab({ Title = "Início", Icon = "home" }),
+    Farm = Window:AddTab({ Title = "Farm", Icon = "leaf" }),
+    Usuario = Window:AddTab({ Title = "Local Player", Icon = "user" }),
+    Vision = Window:AddTab({ Title = "Visão", Icon = "eye" }),
+    Lojinha = Window:AddTab({ Title = "Lojinha Peixe", Icon = "shopping-cart" }),
+    Status = Window:AddTab({ Title = "Status", Icon = "clock" }),  
+    Teleporte = Window:AddTab({ Title = "Teleportes", Icon = "navigation" }),
+    Settings = Window:AddTab({ Title = "Configurações", Icon = "settings" }),
+    Menu = Window:AddTab({ Title = "Menu Painel", Icon = "menu" })
+}
