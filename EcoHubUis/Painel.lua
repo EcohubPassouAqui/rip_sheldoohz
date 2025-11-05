@@ -1,21 +1,22 @@
 local EcoHub = {}
 
 local Theme = {
-	Name = "Darker Force",
-	Accent = Color3.fromRGB(72, 138, 182),
-	AcrylicMain = Color3.fromRGB(15, 15, 15),
-	AcrylicBorder = Color3.fromRGB(40, 40, 40),
-	AcrylicGradient = ColorSequence.new(Color3.fromRGB(10, 10, 10), Color3.fromRGB(5, 5, 5)),
-	AcrylicNoise = 0.94,
-	TitleBarLine = Color3.fromRGB(50, 50, 50),
-	Tab = Color3.fromRGB(80, 80, 80),
-	Element = Color3.fromRGB(45, 45, 45),
-	ElementBorder = Color3.fromRGB(20, 20, 20),
-	InElementBorder = Color3.fromRGB(35, 35, 35),
-	ElementTransparency = 0.65,
-	BoxHeader = Color3.fromRGB(30, 30, 30),
-	BoxContent = Color3.fromRGB(25, 25, 25),
+	Name = "Blackout",
+	Accent = Color3.fromRGB(72, 138, 182), -- azul destaque
+	AcrylicMain = Color3.fromRGB(0, 0, 0), -- fundo principal preto total
+	AcrylicBorder = Color3.fromRGB(25, 25, 25), -- borda sutil
+	AcrylicGradient = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromRGB(10, 10, 10)), -- leve gradiente
+	AcrylicNoise = 0.9,
+	TitleBarLine = Color3.fromRGB(35, 35, 35),
+	Tab = Color3.fromRGB(20, 20, 20), -- fundo das abas
+	Element = Color3.fromRGB(10, 10, 10), -- caixas internas
+	ElementBorder = Color3.fromRGB(30, 30, 30), -- bordas sutis
+	InElementBorder = Color3.fromRGB(50, 50, 50), -- destaque interno
+	ElementTransparency = 0.55, -- levemente translúcido
+	BoxHeader = Color3.fromRGB(15, 15, 15),
+	BoxContent = Color3.fromRGB(0, 0, 0), -- fundo preto total dos elementos
 }
+
 
 local Icons = {
 	Close = "rbxassetid://9886659671",
