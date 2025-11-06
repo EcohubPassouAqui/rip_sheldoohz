@@ -848,93 +848,113 @@ function TabModule:Init(Window)
 end
 
 function TabModule:CreateTab(Config)
-    local Window = TabModule.Window
-    TabModule.TabCount = TabModule.TabCount + 1
-    local TabIndex = TabModule.TabCount
-    
-    local Tab = {
-        Title = Config.Title or "Tab",
-        Icon = Config.Icon,
-        Selected = false,
-        Index = TabIndex,
-    }
-    
-    local IconImage = nil
-    if Tab.Icon and Tab.Icon ~= "" then
-        IconImage = EcoHub:GetIcon(Tab.Icon) or Tab.Icon
-    end
-    
-    local TabButton = Instance.new("TextButton")
-    TabButton.Name = Tab.Title
-    TabButton.Parent = Window.TabBar
-    TabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    TabButton.BorderSizePixel = 0
-    TabButton.Size = UDim2.new(1, 0, 0, 35)
-    TabButton.Font = Enum.Font.GothamSemibold
-    TabButton.Text = ""
-    TabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-    TabButton.TextSize = 13
-    TabButton.LayoutOrder = TabIndex
-    TabButton.ClipsDescendants = true
-    
-    local TabCorner = Instance.new("UICorner")
-    TabCorner.CornerRadius = UDim.new(0, 6)
-    TabCorner.Parent = TabButton
-    
-    if IconImage then
-        local TabIcon = Instance.new("ImageLabel")
-        TabIcon.Name = "Icon"
-        TabIcon.Parent = TabButton
-        TabIcon.AnchorPoint = Vector2.new(0, 0.5)
-        TabIcon.BackgroundTransparency = 1
-        TabIcon.Position = UDim2.new(0, 8, 0.5, 0)
-        TabIcon.Size = UDim2.fromOffset(16, 16)
-        TabIcon.Image = IconImage
-        TabIcon.ImageColor3 = Color3.fromRGB(200, 200, 200)
-    end
-    
-    local TabLabel = Instance.new("TextLabel")
-    TabLabel.Name = "Label"
-    TabLabel.Parent = TabButton
-    TabLabel.AnchorPoint = Vector2.new(0, 0.5)
-    TabLabel.BackgroundTransparency = 1
-    TabLabel.Position = IconImage and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
-    TabLabel.Size = UDim2.new(1, IconImage and -34 or -16, 1, 0)
-    TabLabel.Font = Enum.Font.GothamSemibold
-    TabLabel.Text = Tab.Title
-    TabLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    TabLabel.TextSize = 12
-    TabLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TabLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    
-    local TabPage = Instance.new("ScrollingFrame")
-    TabPage.Name = Tab.Title .. "Page"
-    TabPage.Parent = Window.PageContainer
-    TabPage.BackgroundTransparency = 1
-    TabPage.BorderSizePixel = 0
-    TabPage.Size = UDim2.fromScale(1, 1)
-    TabPage.CanvasSize = UDim2.fromScale(0, 0)
-    TabPage.ScrollBarThickness = 4
-    TabPage.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
-    TabPage.ScrollBarImageTransparency = 0.9
-    TabPage.Visible = false
-    TabPage.ClipsDescendants = true
-    
-    local PageLayout = Instance.new("UIListLayout")
-    PageLayout.Parent = TabPage
-    PageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    PageLayout.Padding = UDim.new(0, 8)
-    
-    local PagePadding = Instance.new("UIPadding")
-    PagePadding.Parent = TabPage
-    PagePadding.PaddingTop = UDim.new(0, 12)
-    PagePadding.PaddingBottom = UDim.new(0, 12)
-    PagePadding.PaddingLeft = UDim.new(0, 12)
-    PagePadding.PaddingRight = UDim.new(0, 12)
-    
-    PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        TabPage.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 24)
-    end)
+	local Window = TabModule.Window
+	TabModule.TabCount = TabModule.TabCount + 1
+	local TabIndex = TabModule.TabCount
+
+	local Tab = {
+		Title = Config.Title or "Tab",
+		Icon = Config.Icon,
+		Selected = false,
+		Index = TabIndex,
+	}
+
+	local IconImage = nil
+	if Tab.Icon and Tab.Icon ~= "" then
+		IconImage = EcoHub:GetIcon(Tab.Icon) or Tab.Icon
+	end
+
+	local TabButton = Instance.new("TextButton")
+	TabButton.Name = Tab.Title
+	TabButton.Parent = Window.TabBar
+	TabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	TabButton.BorderSizePixel = 0
+	TabButton.Size = UDim2.new(1, 0, 0, 35)
+	TabButton.Font = Enum.Font.GothamSemibold
+	TabButton.Text = ""
+	TabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+	TabButton.TextSize = 13
+	TabButton.LayoutOrder = TabIndex
+	TabButton.ClipsDescendants = true
+
+	local TabCorner = Instance.new("UICorner")
+	TabCorner.CornerRadius = UDim.new(0, 6)
+	TabCorner.Parent = TabButton
+
+	if IconImage then
+		local TabIcon = Instance.new("ImageLabel")
+		TabIcon.Name = "Icon"
+		TabIcon.Parent = TabButton
+		TabIcon.AnchorPoint = Vector2.new(0, 0.5)
+		TabIcon.BackgroundTransparency = 1
+		TabIcon.Position = UDim2.new(0, 8, 0.5, 0)
+		TabIcon.Size = UDim2.fromOffset(16, 16)
+		TabIcon.Image = IconImage
+		TabIcon.ImageColor3 = Color3.fromRGB(200, 200, 200)
+	end
+
+	local TabLabel = Instance.new("TextLabel")
+	TabLabel.Name = "Label"
+	TabLabel.Parent = TabButton
+	TabLabel.AnchorPoint = Vector2.new(0, 0.5)
+	TabLabel.BackgroundTransparency = 1
+	TabLabel.Position = IconImage and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+	TabLabel.Size = UDim2.new(1, IconImage and -34 or -16, 1, 0)
+	TabLabel.Font = Enum.Font.GothamSemibold
+	TabLabel.Text = Tab.Title
+	TabLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	TabLabel.TextSize = 12
+	TabLabel.TextXAlignment = Enum.TextXAlignment.Left
+	TabLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local TabPage = Instance.new("ScrollingFrame")
+	TabPage.Name = Tab.Title .. "Page"
+	TabPage.Parent = Window.PageContainer
+	TabPage.BackgroundTransparency = 1
+	TabPage.BorderSizePixel = 0
+	TabPage.Size = UDim2.fromScale(1, 1)
+	TabPage.CanvasSize = UDim2.fromScale(0, 0)
+	TabPage.ScrollBarThickness = 4
+	TabPage.ScrollBarImageColor3 = Color3.fromRGB(72, 138, 182)
+	TabPage.ScrollBarImageTransparency = 0.5
+	TabPage.Visible = false
+	TabPage.ClipsDescendants = true
+	TabPage.ScrollingDirection = Enum.ScrollingDirection.Y
+	TabPage.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+	TabPage.ScrollingEnabled = true
+	TabPage.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+
+	local PageLayout = Instance.new("UIListLayout")
+	PageLayout.Parent = TabPage
+	PageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	PageLayout.Padding = UDim.new(0, 8)
+
+	local PagePadding = Instance.new("UIPadding")
+	PagePadding.Parent = TabPage
+	PagePadding.PaddingTop = UDim.new(0, 12)
+	PagePadding.PaddingBottom = UDim.new(0, 12)
+	PagePadding.PaddingLeft = UDim.new(0, 12)
+	PagePadding.PaddingRight = UDim.new(0, 12)
+
+	PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		TabPage.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 24)
+	end)
+	
+	-- Sistema de scroll com mouse wheel
+	TabPage.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			local scrollAmount = -input.Position.Z * 30
+			local newPosition = math.clamp(
+				TabPage.CanvasPosition.Y + scrollAmount,
+				0,
+				math.max(0, TabPage.CanvasSize.Y.Offset - TabPage.AbsoluteSize.Y)
+			)
+			
+			TweenService:Create(TabPage, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+				CanvasPosition = Vector2.new(0, newPosition)
+			}):Play()
+		end
+	end)
     
     Tab.Button = TabButton
     Tab.Page = TabPage
