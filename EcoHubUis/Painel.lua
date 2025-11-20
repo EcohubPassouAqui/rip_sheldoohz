@@ -3,13 +3,11 @@ local library = {
 }
 library.Flags = library.flags
 
---// Dependences --//
+--// Services //--
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-
-local ViewportSize = workspace.CurrentCamera.ViewportSize
 
 local Mouse = game.Players.LocalPlayer:GetMouse()
 
@@ -20,13 +18,14 @@ local request = syn and syn.request or http and http.request or http_request or 
 local getcustomasset = getcustomasset or getsynasset
 local isfolder = isfolder or syn_isfolder or is_folder
 local makefolder = makefolder or make_folder or createfolder or create_folder
+local writefile = writefile or write_file
 
 local DropIndex = 9999
 
 function Utilities:Create(Inst, Properties, Childs)
     local Instance = Instance.new(Inst)
-    local Properties = Properties or {}
-    local Childs = Childs or {}
+    Properties = Properties or {}
+    Childs = Childs or {}
     
     local BlacklistedProps = {
         BorderSizePixel = 0,
@@ -57,13 +56,13 @@ function Utilities:Round(Number, Increment)
 end
 
 function Utilities:Tween(Inst, Speed, Properties, Style, Direction)
-    local Instance = Inst or error("#1 argument: instance expected.")
-    local Speed = Speed or .125
-    local Properties = typeof(Properties) == "table" and Properties or error("#3 argument: table expected, got: "..typeof(Properties))
-    local Style = Style or Enum.EasingStyle.Linear
-    local Direction = Direction or Enum.EasingDirection.Out
+    if not Inst then return end
+    Speed = Speed or .125
+    Properties = typeof(Properties) == "table" and Properties or {}
+    Style = Style or Enum.EasingStyle.Linear
+    Direction = Direction or Enum.EasingDirection.Out
     
-    local Tween = TweenService:Create(Instance, TweenInfo.new(Speed, Style, Direction), Properties)
+    local Tween = TweenService:Create(Inst, TweenInfo.new(Speed, Style, Direction), Properties)
     Tween:Play()
     
     return Tween
@@ -79,19 +78,22 @@ function Utilities:GetMouse()
     return Vector2.new(UserInputService:GetMouseLocation().X + 1, UserInputService:GetMouseLocation().Y - 35)
 end
 
-if not isfolder("PPHUD") then
-    makefolder("PPHUD")
-    
-    pcall(function()
-        local Arrow = request({Url = "https://raw.githubusercontent.com/Rain-Design/PPHUD/main/Dropdown.png", Method = "GET"})
-        writefile("PPHUD/Arrow.png", Arrow.Body)
+-- Setup Assets
+pcall(function()
+    if not isfolder("PPHUD") then
+        makefolder("PPHUD")
         
-        local Resize = request({Url = "https://raw.githubusercontent.com/Rain-Design/PPHUD/main/resize.png", Method = "GET"})
-        writefile("PPHUD/Resize.png", Resize.Body)
-    end)
-end
+        if request and writefile then
+            local Arrow = request({Url = "https://raw.githubusercontent.com/Rain-Design/PPHUD/main/Dropdown.png", Method = "GET"})
+            writefile("PPHUD/Arrow.png", Arrow.Body)
+            
+            local Resize = request({Url = "https://raw.githubusercontent.com/Rain-Design/PPHUD/main/resize.png", Method = "GET"})
+            writefile("PPHUD/Resize.png", Resize.Body)
+        end
+    end
+end)
 
---// Colors --//
+--// Colors //--
 local Colors = {
     Primary = Color3.fromRGB(27, 25, 27),
     Secondary = Color3.fromRGB(42, 40, 42),
@@ -115,9 +117,19 @@ function library:Window(WindowArgs)
     WindowTable.__index = WindowTable
     
     self.Tabs = 0
-    self.Hovering = false
     
     local SelectedTab = nil
+    
+    -- Create arrow image as text if custom asset fails
+    local ArrowImage = "rbxassetid://0"
+    local ResizeImage = "rbxassetid://0"
+    
+    pcall(function()
+        if getcustomasset then
+            ArrowImage = getcustomasset("PPHUD/Arrow.png")
+            ResizeImage = getcustomasset("PPHUD/Resize.png")
+        end
+    end)
     
     local Window = Utilities:Create("ScreenGui", {
         Name = "PPHUD",
@@ -126,9 +138,9 @@ function library:Window(WindowArgs)
         Utilities:Create("Frame", {
             Name = "Main",
             Size = UDim2.new(0, 600, 0, 400),
-            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            BackgroundColor3 = Colors.Primary,
             ClipsDescendants = true,
-            Position = UDim2.new(0, 600, 0, 270)
+            Position = UDim2.new(0.5, -300, 0.5, -200)
         }, {
             Utilities:Create("UIGradient", {
                 Color = ColorSequence.new({
@@ -160,20 +172,20 @@ function library:Window(WindowArgs)
                     Position = UDim2.new(.5, 0, 0, 0),
                     ZIndex = DropIndex + 5
                 }),
-                Utilities:Create("ImageLabel", {
+                Utilities:Create("Frame", {
                     Name = "ResizeIcon",
                     Size = UDim2.new(0, 10, 0, 10),
-                    BackgroundTransparency = 1,
-                    Image = getcustomasset("PPHUD/Resize.png"),
+                    BackgroundColor3 = Color3.fromRGB(100, 100, 100),
                     AnchorPoint = Vector2.new(1, 1),
                     Position = UDim2.new(1, 0, 1, 0),
                     ZIndex = DropIndex + 5
                 }, {
                     Utilities:Create("TextButton", {
                         Name = "ResizeButton",
-                        Size = UDim2.new(0, 10, 0, 10),
+                        Size = UDim2.new(1, 0, 1, 0),
                         BackgroundTransparency = 1,
-                        ZIndex = DropIndex + 5
+                        Text = "",
+                        ZIndex = DropIndex + 6
                     })
                 }),
                 Utilities:Create("TextLabel", {
@@ -227,12 +239,14 @@ function library:Window(WindowArgs)
         })
     })
 
+    -- Toggle with LeftAlt
     UserInputService.InputBegan:Connect(function(Input, GameProcessed)
         if Input.KeyCode == Enum.KeyCode.LeftAlt and not GameProcessed then
             Window.Main.Visible = not Window.Main.Visible
         end
     end)
 
+    -- Console
     local Console = Utilities:Create("Frame", {
         Name = "Console",
         Size = UDim2.new(0, 500, 0, 300),
@@ -284,9 +298,8 @@ function library:Window(WindowArgs)
 
     local consoleContainer = Console.ConsoleContainer
 
-    local scrollSize
     consoleContainer.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scrollSize = consoleContainer.UIListLayout.AbsoluteContentSize.Y
+        local scrollSize = consoleContainer.UIListLayout.AbsoluteContentSize.Y
         consoleContainer.CanvasPosition = Vector2.new(0, scrollSize)
     end)
 
@@ -317,10 +330,9 @@ function library:Window(WindowArgs)
         coloredMessage = not coloredMessage
 
         local currentDate = os.date("%X")
-
         local finalMessage = string.format("[%s] %s", currentDate, consoleArgs.Text)
 
-        local Message = Utilities:Create("Frame", {
+        Utilities:Create("Frame", {
             Name = "ConsoleMessage",
             BackgroundColor3 = Colors.Divider,
             BackgroundTransparency = coloredMessage and 0 or 1,
@@ -344,12 +356,19 @@ function library:Window(WindowArgs)
         })
     end
 
-    if syn and syn.protect_gui then
-        syn.protect_gui(Window)
-        Window.Parent = CoreGui
-    elseif gethui then
-        Window.Parent = gethui()
-    else
+    -- Parent to CoreGui
+    pcall(function()
+        if syn and syn.protect_gui then
+            syn.protect_gui(Window)
+            Window.Parent = CoreGui
+        elseif gethui then
+            Window.Parent = gethui()
+        else
+            Window.Parent = CoreGui
+        end
+    end)
+
+    if not Window.Parent then
         Window.Parent = CoreGui
     end
 
@@ -366,11 +385,12 @@ function library:Window(WindowArgs)
     SizeY.Value = 400
 
     local function ResizeTabs()
+        if self.Tabs == 0 then return end
         local TabSize = 1 / self.Tabs
         
         task.spawn(function()
             for _, v in pairs(TabContainer:GetChildren()) do
-                if v.ClassName == "Frame" then
+                if v:IsA("Frame") then
                     v.Size = UDim2.new(TabSize, 0, 0, 26)
                 end
             end
@@ -393,7 +413,7 @@ function library:Window(WindowArgs)
     ResizeButton.MouseButton1Down:Connect(function()
         local ResizeMove, ResizeKill
         
-        Utilities:Tween(Window.Main.Bottom.ResizeIcon, .125, {ImageColor3 = Colors.Accent})
+        Utilities:Tween(Window.Main.Bottom.ResizeIcon, .125, {BackgroundColor3 = Colors.Accent})
 
         ResizeMove = Mouse.Move:Connect(function()
             Resize()
@@ -404,7 +424,7 @@ function library:Window(WindowArgs)
                 ResizeMove:Disconnect()
                 ResizeKill:Disconnect()
 
-                Utilities:Tween(Window.Main.Bottom.ResizeIcon, .125, {ImageColor3 = Color3.fromRGB(255, 255, 255)})
+                Utilities:Tween(Window.Main.Bottom.ResizeIcon, .125, {BackgroundColor3 = Color3.fromRGB(100, 100, 100)})
             end
         end)
     end)
@@ -414,6 +434,7 @@ function library:Window(WindowArgs)
         ResizeTabs()
     end)
 
+    -- Dragging
     local dragging = false
     local dragInput, mousePos, framePos
 
@@ -486,7 +507,8 @@ function library:Window(WindowArgs)
             Utilities:Create("TextButton", {
                 Name = "TabButton",
                 Size = UDim2.new(1, 0, 1, 0),
-                BackgroundTransparency = 1
+                BackgroundTransparency = 1,
+                Text = ""
             })
         })
 
@@ -507,13 +529,12 @@ function library:Window(WindowArgs)
             Name = "Left",
             BackgroundTransparency = 1,
             Visible = false,
-            BackgroundColor3 = Color3.fromRGB(167, 54, 54),
             CanvasSize = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ClipsDescendants = false,
             ScrollBarThickness = 0,
             Parent = ContainerHolder,
-            Size = UDim2.new(.5, 0, 0, 350)
+            Size = UDim2.new(.5, 0, 1, 0)
         }, {
             Utilities:Create("UIListLayout"),
             Utilities:Create("UIPadding", {
@@ -525,14 +546,12 @@ function library:Window(WindowArgs)
             Name = "Right",
             BackgroundTransparency = 1,
             Visible = false,
-            BackgroundColor3 = Color3.fromRGB(45, 175, 62),
             CanvasSize = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ClipsDescendants = false,
             ScrollBarThickness = 0,
             Parent = ContainerHolder,
-            Size = UDim2.new(.5, 0, 0, 350),
-            Position = UDim2.new(0, 300, 0, 0)
+            Size = UDim2.new(.5, 0, 1, 0)
         }, {
             Utilities:Create("UIListLayout"),
             Utilities:Create("UIPadding", {
@@ -568,7 +587,7 @@ function library:Window(WindowArgs)
                 end
                 
                 for _, v in pairs(TabContainer:GetChildren()) do
-                    if v.ClassName == "Frame" and v ~= Tab then
+                    if v:IsA("Frame") and v ~= Tab then
                         Utilities:Tween(v.Divider, .125, {BackgroundColor3 = Colors.Divider})
                         Utilities:Tween(v.TabText, .125, {TextColor3 = Colors.SecondaryText})
                     end
@@ -595,7 +614,6 @@ function library:Window(WindowArgs)
             local Section = Utilities:Create("Frame", {
                 Name = "Section",
                 Parent = SectionArgs.Side == "Left" and Left or Right,
-                BackgroundColor3 = Color3.fromRGB(167, 54, 54),
                 BackgroundTransparency = 1,
                 Size = UDim2.new(0, 286, 0, 36)
             }, {
@@ -634,16 +652,16 @@ function library:Window(WindowArgs)
             SizeX:GetPropertyChangedSignal("Value"):Connect(function()
                 local Size = SizeX.Value / 2 - 14
                 Section.Size = UDim2.new(0, Size, 0, SectionY)
+                Section.SectionText.Size = UDim2.new(0, Size, 0, 26)
                 Section.Divider.Size = UDim2.new(0, Size, 0, 1)
+                Section.Container.Size = UDim2.new(0, Size, 0, SectionY - 36)
             end)
 
             local SectionContainer = Section.Container
 
             SectionContainer.ChildAdded:Connect(function()
                 SectionY = SectionY + 21
-
                 Section.Size = UDim2.new(0, 286, 0, SectionY)
-                SectionContainer.Size = UDim2.new(0, 286, 0, SectionY)
             end)
 
             function SectionTable:Check(CheckArgs)
@@ -663,11 +681,6 @@ function library:Window(WindowArgs)
                     Size = UDim2.new(0, 286, 0, 21),
                     BackgroundTransparency = 1,
                 }, {
-                    Utilities:Create("TextButton", {
-                        Name = "CheckButton",
-                        Size = UDim2.new(0, 14, 0, 14),
-                        BackgroundTransparency = 1
-                    }),
                     Utilities:Create("Frame", {
                         Name = "CheckFrame",
                         Size = UDim2.new(0, 14, 0, 14),
@@ -679,7 +692,7 @@ function library:Window(WindowArgs)
                             TextSize = 13,
                             RichText = true,
                             Font = Enum.Font.SourceSansBold,
-                            Size = UDim2.new(0, 14, 0, 14),
+                            Size = UDim2.new(0, 250, 0, 14),
                             TextXAlignment = Enum.TextXAlignment.Left,
                             Position = UDim2.new(0, 20, 0, 0),
                             TextColor3 = Colors.PrimaryText,
@@ -694,14 +707,17 @@ function library:Window(WindowArgs)
                         }),
                         Utilities:Create("UIStroke", {
                             Color = Colors.Divider
+                        }),
+                        Utilities:Create("TextButton", {
+                            Name = "CheckButton",
+                            Size = UDim2.new(0, 270, 0, 14),
+                            BackgroundTransparency = 1,
+                            Text = ""
                         })
                     })
                 })
 
-                local CheckButton = Check.CheckButton
-
-                local TextBounds = Check.CheckFrame.CheckText.TextBounds
-                local ButtonSize = TextBounds.X ~= 0 and TextBounds.X + 20 or 14
+                local CheckButton = Check.CheckFrame.CheckButton
 
                 CheckButton.MouseEnter:Connect(function()
                     if not State then
@@ -743,7 +759,7 @@ function library:Window(WindowArgs)
                     Utilities:Create("Frame", {
                         Name = "ButtonFrame",
                         BackgroundColor3 = Colors.Secondary,
-                        Size = UDim2.new(0, 14, 0, 14)
+                        Size = UDim2.new(0, 80, 0, 14)
                     }, {
                         Utilities:Create("UIStroke", {
                             Color = Colors.Divider
@@ -761,7 +777,8 @@ function library:Window(WindowArgs)
                         Utilities:Create("TextButton", {
                             Name = "ButtonButton",
                             Size = UDim2.new(1, 0, 1, 0),
-                            BackgroundTransparency = 1
+                            BackgroundTransparency = 1,
+                            Text = ""
                         })
                     })
                 })
@@ -780,8 +797,8 @@ function library:Window(WindowArgs)
                     Utilities:Tween(Button.ButtonFrame.UIStroke, .125, {Color = Colors.Divider})
                 end)
 
+                task.wait(0.1)
                 local TextX = math.clamp(Button.ButtonFrame.ButtonText.TextBounds.X, 15, 1000)
-
                 Button.ButtonFrame.Size = UDim2.new(0, TextX + 10, 0, 14)
 
                 Button.ButtonFrame.ButtonButton.MouseButton1Down:Connect(function()
@@ -799,7 +816,7 @@ function library:Window(WindowArgs)
                 end)
 
                 Button.ButtonFrame.ButtonButton.MouseButton1Click:Connect(function()
-                    task.spawn(Info.Callback)
+                    pcall(Info.Callback)
                 end)
             end
 
@@ -821,7 +838,6 @@ function library:Window(WindowArgs)
 
                 local DefaultValue = math.clamp(Info.Default, Info.Minimum, Info.Maximum)
                 local Rounded = Utilities:Round(DefaultValue, Info.Incrementation)
-
                 local DefaultScale = (Rounded - Info.Minimum) / (Info.Maximum - Info.Minimum)
 
                 local StepFormat = "%d"
@@ -869,6 +885,7 @@ function library:Window(WindowArgs)
                             Name = "SliderButton",
                             Size = UDim2.new(1, 0, 1, 0),
                             BackgroundTransparency = 1,
+                            Text = ""
                         }),
                         Utilities:Create("TextLabel", {
                             Name = "SliderText",
@@ -922,7 +939,7 @@ function library:Window(WindowArgs)
                             library.Flags[Info.Flag] = FinalValue
                         end
                         Slider.SliderOuter.SliderValueText.Text = StepFormat:format(FinalValue)..Info.Postfix
-                        task.spawn(Info.Callback, FinalValue)
+                        pcall(Info.Callback, FinalValue)
                     end)
                     MouseKill = UserInputService.InputEnded:Connect(function(UserInput)
                         if UserInput.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -981,7 +998,6 @@ function library:Window(WindowArgs)
                 Info.Callback = Info.Callback or function() end
 
                 local State = false
-
                 local DropdownTable = {}
                 DropdownTable.Index = DropIndex
                 local DropdownY = 0
@@ -1006,20 +1022,22 @@ function library:Window(WindowArgs)
                             Name = "DropdownText",
                             BackgroundTransparency = 1,
                             Text = Info.Text,
-                            Size = UDim2.new(1, 0, 0, 14),
+                            Size = UDim2.new(1, -25, 0, 14),
                             TextXAlignment = Enum.TextXAlignment.Left,
                             RichText = true,
                             Position = UDim2.new(0, 4, 0, 0),
                             TextSize = 13,
                             TextColor3 = Colors.TertiaryText,
                             Font = Enum.Font.SourceSansBold,
+                            TextTruncate = Enum.TextTruncate.AtEnd,
                             ZIndex = DropdownTable.Index
                         }),
                         Utilities:Create("TextButton", {
                             Name = "DropdownButton",
                             BackgroundTransparency = 1,
                             Size = UDim2.new(1, 0, 0, 14),
-                            ZIndex = DropdownTable.Index
+                            Text = "",
+                            ZIndex = DropdownTable.Index + 1
                         }),
                         Utilities:Create("Frame", {
                             Name = "DropdownContainer",
@@ -1032,24 +1050,6 @@ function library:Window(WindowArgs)
                             Utilities:Create("UIListLayout")
                         }),
                         Utilities:Create("Frame", {
-                            Name = "GradientHolder",
-                            Size = UDim2.new(0, 20, 0, 14),
-                            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                            Position = UDim2.new(1, -41, 0, 0),
-                            ZIndex = DropdownTable.Index
-                        }, {
-                            Utilities:Create("UIGradient", {
-                                Color = ColorSequence.new({
-                                    ColorSequenceKeypoint.new(0, Colors.Secondary),
-                                    ColorSequenceKeypoint.new(1, Colors.Secondary),
-                                }),
-                                Transparency = NumberSequence.new({
-                                    NumberSequenceKeypoint.new(0, 1),
-                                    NumberSequenceKeypoint.new(1, 0),
-                                })
-                            })
-                        }),
-                        Utilities:Create("Frame", {
                             Name = "DropdownImageContainer",
                             Size = UDim2.new(0, 21, 0, 14),
                             BackgroundColor3 = Colors.Tertiary,
@@ -1059,14 +1059,14 @@ function library:Window(WindowArgs)
                             Utilities:Create("UIStroke", {
                                 Color = Colors.AccentDivider
                             }),
-                            Utilities:Create("ImageLabel", {
+                            Utilities:Create("TextLabel", {
                                 Name = "DropdownImage",
-                                Size = UDim2.new(0, 10, 0, 10),
+                                Size = UDim2.new(1, 0, 1, 0),
                                 BackgroundTransparency = 1,
-                                Rotation = 0,
-                                Image = getcustomasset("PPHUD/Arrow.png"),
-                                AnchorPoint = Vector2.new(.5, .5),
-                                Position = UDim2.new(.5, 0, .5, 0),
+                                Text = "▼",
+                                TextSize = 10,
+                                Font = Enum.Font.SourceSansBold,
+                                TextColor3 = Colors.PrimaryText,
                                 ZIndex = DropdownTable.Index
                             })
                         })
@@ -1097,19 +1097,16 @@ function library:Window(WindowArgs)
                     State = bool
 
                     if State then
-                        Utilities:Tween(Dropdown.DropdownFrame, .2, {BackgroundColor3 = Colors.Secondary})
-                        DropdownContainer.Size = DropdownContainer.Size + UDim2.fromOffset(0, DropdownY)
-                        Dropdown.DropdownFrame.Size = Dropdown.DropdownFrame.Size + UDim2.fromOffset(0, DropdownY)
-                        DropdownImage.Rotation = 90
+                        Utilities:Tween(Dropdown.DropdownFrame, .2, {Size = UDim2.new(.6, 3, 0, 14 + DropdownY)})
+                        DropdownImage.Text = "▲"
                     else
-                        DropdownContainer.Size = DropdownContainer.Size - UDim2.fromOffset(0, DropdownY)
-                        Dropdown.DropdownFrame.Size = Dropdown.DropdownFrame.Size - UDim2.fromOffset(0, DropdownY)
-                        DropdownImage.Rotation = 0
+                        Utilities:Tween(Dropdown.DropdownFrame, .2, {Size = UDim2.new(.6, 3, 0, 14)})
+                        DropdownImage.Text = "▼"
                     end
                 end
 
                 if Info.Default then
-                    task.spawn(Info.Callback, Info.Default)
+                    pcall(Info.Callback, Info.Default)
                     if Info.Flag then
                         library.Flags[Info.Flag] = Info.Default
                     end
@@ -1119,7 +1116,11 @@ function library:Window(WindowArgs)
                 end
 
                 function DropdownTable:Select(v)
-                    task.spawn(Info.Callback, v)
+                    pcall(Info.Callback, v)
+
+                    if Info.Flag then
+                        library.Flags[Info.Flag] = v
+                    end
 
                     if Info.ChangeText then
                         Dropdown.DropdownFrame.DropdownText.Text = v
@@ -1131,7 +1132,7 @@ function library:Window(WindowArgs)
                 local function OnPick(v)
                     if Info.Multi then
                         if not table.find(MultiTable, v.DropdownElementText.Text) then
-                            Utilities:Tween(v, .125, {BackgroundTransparency = .95})
+                            Utilities:Tween(v, .125, {BackgroundColor3 = Colors.Hovering})
                             Utilities:Tween(v.DropdownElementText, .125, {TextColor3 = Colors.Accent})
                             table.insert(MultiTable, v.DropdownElementText.Text)
                         else
@@ -1143,7 +1144,7 @@ function library:Window(WindowArgs)
                                 end
                             end
                         end
-                        task.spawn(Info.Callback, MultiTable)
+                        pcall(Info.Callback, MultiTable)
 
                         if Info.ChangeText then
                             Dropdown.DropdownFrame.DropdownText.Text = ""
@@ -1160,31 +1161,21 @@ function library:Window(WindowArgs)
                     end
                 end
 
-                function DropdownTable:Refresh(table)
+                function DropdownTable:Refresh(tbl)
                     for _, v in pairs(DropdownContainer:GetChildren()) do
-                        if v.ClassName == "Frame" then
+                        if v:IsA("Frame") then
                             v:Destroy()
                             DropdownY = DropdownY - 14
-
-                            if State then
-                                DropdownContainer.Size = DropdownContainer.Size - UDim2.fromOffset(0, 14)
-                                Dropdown.DropdownFrame.Size = Dropdown.DropdownFrame.Size - UDim2.fromOffset(0, 14)
-                            end
                         end
                     end
 
-                    for _, v in pairs(table) do
+                    for _, v in pairs(tbl) do
                         DropdownTable:Add(v)
                     end
                 end
 
                 function DropdownTable:Add(str)
                     DropdownY = DropdownY + 14
-
-                    if State then
-                        DropdownContainer.Size = DropdownContainer.Size + UDim2.fromOffset(0, 14)
-                        Dropdown.DropdownFrame.Size = Dropdown.DropdownFrame.Size + UDim2.fromOffset(0, 14)
-                    end
 
                     local DropdownElement = Utilities:Create("Frame", {
                         Name = "DropdownElement",
@@ -1196,8 +1187,10 @@ function library:Window(WindowArgs)
                         Utilities:Create("TextLabel", {
                             Name = "DropdownElementText",
                             Text = str,
-                            Size = UDim2.new(1, 0, 1, 0),
+                            Size = UDim2.new(1, -4, 1, 0),
+                            Position = UDim2.new(0, 4, 0, 0),
                             TextSize = 13,
+                            TextXAlignment = Enum.TextXAlignment.Left,
                             BackgroundTransparency = 1,
                             RichText = true,
                             TextColor3 = Colors.PrimaryText,
@@ -1208,13 +1201,14 @@ function library:Window(WindowArgs)
                             Name = "DropdownElementButton",
                             Size = UDim2.new(1, 0, 1, 0),
                             BackgroundTransparency = 1,
-                            ZIndex = DropdownTable.Index
+                            Text = "",
+                            ZIndex = DropdownTable.Index + 1
                         })
                     })
 
                     DropdownElement.MouseEnter:Connect(function()
                         if not table.find(MultiTable, DropdownElement.DropdownElementText.Text) then
-                            Utilities:Tween(DropdownElement, .125, {BackgroundTransparency = .95})
+                            Utilities:Tween(DropdownElement, .125, {BackgroundColor3 = Colors.Hovering})
                             Utilities:Tween(DropdownElement.DropdownElementText, .125, {TextColor3 = Colors.Accent})
                         end
                     end)
@@ -1237,7 +1231,6 @@ function library:Window(WindowArgs)
 
                 Dropdown.DropdownFrame.DropdownButton.MouseButton1Click:Connect(function()
                     State = not State
-
                     DropdownTable:Toggle(State)
                 end)
 
