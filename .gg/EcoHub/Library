@@ -437,20 +437,9 @@ function library:Window(WindowArgs)
             local Section = Utilities:Create("Frame", {
                 Name = "Section",
                 Parent = SectionArgs.Side == "Left" and Left or Right,
-                BackgroundColor3 = Colors.Secondary,
-                BackgroundTransparency = 0,
+                BackgroundTransparency = 1,
                 Size = UDim2.new(0, 286, 0, 36)
             }, {
-                Utilities:Create("UIStroke", { 
-                    Color = Colors.Divider,
-                    Thickness = 1
-                }),
-                Utilities:Create("UIPadding", {
-                    PaddingLeft = UDim.new(0, 8),
-                    PaddingRight = UDim.new(0, 8),
-                    PaddingTop = UDim.new(0, 6),
-                    PaddingBottom = UDim.new(0, 6)
-                }),
                 Utilities:Create("TextLabel", {
                     Name = "SectionText",
                     Size = UDim2.new(0, 286, 0, 26),
