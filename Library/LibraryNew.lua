@@ -150,10 +150,10 @@ local dt = DateTime.fromIsoDate(updatedDate)
 -- [ TITLE EVENT ] --
 
 local emoji = {
-    ["01 01"] = "Imperium  ・  HAPPY NEW YEAR   🎆",
-    ["10 31"] = "Imperium  ・  Happy Halloween   🎃",
-    ["12 25"] = "Imperium  ・  Merry Christmas   🎄",
-    ["02 14"] = "Imperium  ・  Happy Valentine's Day   💕"
+    ["01 01"] = "EcoHub  ・  HAPPY NEW YEAR   🎆",
+    ["10 31"] = "EcoHub  ・  Happy Halloween   🎃",
+    ["12 25"] = "EcoHub  ・  Merry Christmas   🎄",
+    ["02 14"] = "EcoHub  ・  Happy Valentine's Day   💕"
 }
 
 function lib:UpdateTitle()
