@@ -32,7 +32,7 @@ local CloseBind = Enum.KeyCode.RightControl
 local isGuiOpened = true
 
 local ui = Instance.new("ScreenGui")
-ui.Name = "Imperium"
+ui.Name = "EcoHub"
 ui.Parent = game.CoreGui
 ui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -124,7 +124,7 @@ function lib:runtime(funct)
 	if typeof(funct) == "function" then
 		RunService.RenderStepped:Connect(funct)
 	else
-		print("> Imperium  |  Runtime  •  Argument", "Argument must be a function.", {}, nil, {})
+		print("> EcoHub  |  Runtime  •  Argument", "Argument must be a function.", {}, nil, {})
 	end
 end
 
@@ -136,7 +136,7 @@ function lib:FireTouch(gameservice)
 				wait()
 				firetouchinterest(LocalPlayer.Character.HumanoidRootPart,v.Parent,1)
 			else
-				print("> Imperium  |  FireTouch  •  Your executor doesnt support firetouchinterest()  |  Attempt to index nil function with 'firetouchinterest'")
+				print("> EcoHub  |  FireTouch  •  Your executor doesnt support firetouchinterest()  |  Attempt to index nil function with 'firetouchinterest'")
 			end
 		end
 	end)
@@ -163,7 +163,7 @@ function lib:UpdateTitle()
     if eventTitle then
         self:SetTitle(eventTitle)
     else
-        self:SetTitle("Imperium")
+        self:SetTitle("EcoHub")
     end
 end
 
@@ -249,6 +249,80 @@ function lib:Window(text, preset, closebind)
     Main:TweenSize(UDim2.new(0, 560, 0, 319), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, .6, true)
 
     MakeDraggable(DragFrame, Main)
+
+    -- [ DYNAMIC ISLAND ] --
+
+    local CoreGui = game:GetService("CoreGui")
+    local TopBar = CoreGui:WaitForChild("TopBarApp", 5)
+    local App = TopBar:WaitForChild("TopBarApp", 5)
+    local UnibarLeft = App:WaitForChild("UnibarLeftFrame", 5)
+    local StackedElements = UnibarLeft:WaitForChild("StackedElements", 5)
+
+    local padding = StackedElements:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 15)
+    padding.Parent = StackedElements
+
+    local Frame = Instance.new("Frame")
+    Frame.Name = "MainFrame"
+    Frame.Parent = StackedElements
+    Frame.AnchorPoint = Vector2.new(0.5, 0)
+    Frame.Position = UDim2.new(0, 0, 0, 0)
+    Frame.Size = UDim2.new(0, 340, 1, 0)
+    Frame.BackgroundColor3 = Color3.fromRGB(18, 18, 21)
+    Frame.BackgroundTransparency = 0.08
+    Frame.BorderSizePixel = 0
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(1, 0)
+    UICorner.Parent = Frame
+
+    local Logo = Instance.new("ImageButton")
+    Logo.Name = "LogoButton"
+    Logo.Parent = Frame
+    Logo.AnchorPoint = Vector2.new(0, 0.5)
+    Logo.Position = UDim2.new(0, 12, 0.5, 0)
+    Logo.Size = UDim2.new(0, 27, 0, 27)
+    Logo.BackgroundTransparency = 1
+    Logo.Image = logoAsset
+
+    local StatsContainer = Instance.new("Frame")
+    StatsContainer.Name = "StatsContainer"
+    StatsContainer.Parent = Frame
+    StatsContainer.BackgroundTransparency = 1
+    StatsContainer.Position = UDim2.new(0, 48, 0, 0)
+    StatsContainer.Size = UDim2.new(1, -52, 1, 0)
+
+    local function createStatFrame(name, parent, pos, size, labelText, iconImage)
+        local frame = Instance.new("Frame")
+        frame.Name = name
+        frame.Parent = parent
+        frame.BackgroundTransparency = 1
+        frame.Position = pos
+        frame.Size = size
+
+        local icon = Instance.new("ImageLabel")
+        icon.Name = "Icon"
+        icon.Parent = frame
+        icon.BackgroundTransparency = 1
+        icon.Size = UDim2.new(0, 14, 0, 14)
+        icon.Position = UDim2.new(0, 0, 0, 15)
+        icon.Image = iconImage
+
+        local text = Instance.new("TextLabel")
+        text.Name = "Text"
+        text.Parent = frame
+        text.BackgroundTransparency = 1
+        text.Position = UDim2.new(0, 18, 0, 0)
+        text.Size = UDim2.new(1, -18, 1, 0)
+        text.Font = Enum.Font.GothamMedium
+        text.TextScaled = false
+        text.TextColor3 = Color3.fromRGB(213, 213, 213)
+        text.TextXAlignment = Enum.TextXAlignment.Left
+        text.TextTruncate = Enum.TextTruncate.AtEnd
+        text.Text = labelText or ""
+
+        return frame, text, icon
+    end
 
     local function toggleUI()
         if isGuiOpened then
@@ -2855,4 +2929,3 @@ function lib:Window(text, preset, closebind)
     end
     return tabhold
 end
-return lib
