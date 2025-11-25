@@ -175,35 +175,6 @@ end
 
 -- [ DYNAMIC ISLAND ] --
 
-local folderPath = "Imperium_Assets"
-local baseURL = "https://raw.githubusercontent.com/Imperium-Development/Imperium/main/.assets/"
-
-if not isfolder(folderPath) then
-    makefolder(folderPath)
-end
-
-local assets = {
-    logo = { file = folderPath .. "/imperiumicon.png", url = baseURL .. "imperiumicon.png" },
-    script_owner = { file = folderPath .. "/scriptowner.png", url = baseURL .. "scriptowner.png" },
-    player = { file = folderPath .. "/user.png", url = baseURL .. "user.png" },
-    game = { file = folderPath .. "/game.png", url = baseURL .. "game.png" },
-    fps = { file = folderPath .. "/fps.png", url = baseURL .. "fps.png" },
-    ping_low = { file = folderPath .. "/signal-low.png", url = baseURL .. "signal-low.png" },
-    ping_med = { file = folderPath .. "/signal-medium.png", url = baseURL .. "signal-medium.png" },
-    ping_high = { file = folderPath .. "/signal-high.png", url = baseURL .. "signal-high.png" }
-}
-
-for _, v in pairs(assets) do
-    if not isfile(v.file) then
-        local success, response = pcall(function()
-            return game:HttpGet(v.url)
-        end)
-        if success and response then
-            writefile(v.file, response)
-        end
-    end
-end
-
 local function loadAsset(path)
     if isfile(path) then
         return getcustomasset(path)
@@ -211,16 +182,6 @@ local function loadAsset(path)
         return "rbxassetid://0"
     end
 end
-
-local logoAsset = loadAsset(assets.logo.file)
-local scriptOwner = loadAsset(assets.script_owner.file)
-local playerIcon = loadAsset(assets.player.file)
-local gameIcon = loadAsset(assets.game.file)
-local fpsIcon = loadAsset(assets.fps.file)
-local pingLowIcon = loadAsset(assets.ping_low.file)
-local pingMedIcon = loadAsset(assets.ping_med.file)
-local pingHighIcon = loadAsset(assets.ping_high.file)
-
 
 function lib:Window(text, preset, closebind)
     CloseBind = closebind or Enum.KeyCode.RightControl
@@ -288,114 +249,6 @@ function lib:Window(text, preset, closebind)
     Main:TweenSize(UDim2.new(0, 560, 0, 319), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, .6, true)
 
     MakeDraggable(DragFrame, Main)
-
-    -- [ DYNAMIC ISLAND ] --
-
-    local CoreGui = game:GetService("CoreGui")
-    local TopBar = CoreGui:WaitForChild("TopBarApp", 5)
-    local App = TopBar:WaitForChild("TopBarApp", 5)
-    local UnibarLeft = App:WaitForChild("UnibarLeftFrame", 5)
-    local StackedElements = UnibarLeft:WaitForChild("StackedElements", 5)
-
-    local padding = StackedElements:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, 15)
-    padding.Parent = StackedElements
-
-    local Frame = Instance.new("Frame")
-    Frame.Name = "MainFrame"
-    Frame.Parent = StackedElements
-    Frame.AnchorPoint = Vector2.new(0.5, 0)
-    Frame.Position = UDim2.new(0, 0, 0, 0)
-    Frame.Size = UDim2.new(0, 340, 1, 0)
-    Frame.BackgroundColor3 = Color3.fromRGB(18, 18, 21)
-    Frame.BackgroundTransparency = 0.08
-    Frame.BorderSizePixel = 0
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(1, 0)
-    UICorner.Parent = Frame
-
-    local Logo = Instance.new("ImageButton")
-    Logo.Name = "LogoButton"
-    Logo.Parent = Frame
-    Logo.AnchorPoint = Vector2.new(0, 0.5)
-    Logo.Position = UDim2.new(0, 12, 0.5, 0)
-    Logo.Size = UDim2.new(0, 27, 0, 27)
-    Logo.BackgroundTransparency = 1
-    Logo.Image = logoAsset
-
-    local StatsContainer = Instance.new("Frame")
-    StatsContainer.Name = "StatsContainer"
-    StatsContainer.Parent = Frame
-    StatsContainer.BackgroundTransparency = 1
-    StatsContainer.Position = UDim2.new(0, 48, 0, 0)
-    StatsContainer.Size = UDim2.new(1, -52, 1, 0)
-
-    local function createStatFrame(name, parent, pos, size, labelText, iconImage)
-        local frame = Instance.new("Frame")
-        frame.Name = name
-        frame.Parent = parent
-        frame.BackgroundTransparency = 1
-        frame.Position = pos
-        frame.Size = size
-
-        local icon = Instance.new("ImageLabel")
-        icon.Name = "Icon"
-        icon.Parent = frame
-        icon.BackgroundTransparency = 1
-        icon.Size = UDim2.new(0, 14, 0, 14)
-        icon.Position = UDim2.new(0, 0, 0, 15)
-        icon.Image = iconImage
-
-        local text = Instance.new("TextLabel")
-        text.Name = "Text"
-        text.Parent = frame
-        text.BackgroundTransparency = 1
-        text.Position = UDim2.new(0, 18, 0, 0)
-        text.Size = UDim2.new(1, -18, 1, 0)
-        text.Font = Enum.Font.GothamMedium
-        text.TextScaled = false
-        text.TextColor3 = Color3.fromRGB(213, 213, 213)
-        text.TextXAlignment = Enum.TextXAlignment.Left
-        text.TextTruncate = Enum.TextTruncate.AtEnd
-        text.Text = labelText or ""
-
-        return frame, text, icon
-    end
-
-    local GameStats, GameText = createStatFrame("GameStats", StatsContainer, UDim2.new(0.01, -5, 0, 0), UDim2.new(0.28, 0, 1, 0), game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name, gameIcon)
-    local PlayerStats, PlayerText = createStatFrame("PlayerStats", StatsContainer, UDim2.new(0.01, 68, 0, 0), UDim2.new(0.28, 0, 1, 0), game.Players.LocalPlayer.Name, playerIcon)
-    local FPSStats, FPSText = createStatFrame("FPSStats", StatsContainer, UDim2.new(0.4, 35, 0, 0), UDim2.new(0.22, 0, 1, 0), "0 FPS", fpsIcon)
-    local PingStats, PingText, PingIcon = createStatFrame("PingStats", StatsContainer, UDim2.new(0.73, 5, 0, 0), UDim2.new(0.22, 0, 1, 0), "0 MS", pingLowIcon)
-
-    local RunService = game:GetService("RunService")
-    local StatsService = game:GetService("Stats")
-    local PingValue = StatsService.Network.ServerStatsItem["Data Ping"]
-
-    local fps, frames, lastUpdate = 0, 0, tick()
-    RunService.RenderStepped:Connect(function()
-        frames += 1
-        if tick() - lastUpdate >= 1 then
-            fps = frames
-            frames = 0
-            lastUpdate = tick()
-            FPSText.Text = fps .. " FPS"
-        end
-
-        local ping = math.floor(PingValue:GetValue())
-        PingText.Text = ping .. " MS"
-
-        if ping <= 80 then
-            PingText.TextColor3 = Color3.fromRGB(133, 255, 109)
-            PingIcon.Image = pingLowIcon
-        elseif ping <= 150 then
-            PingText.TextColor3 = Color3.fromRGB(255, 255, 64)
-            PingIcon.Image = pingMedIcon
-        else
-            PingText.TextColor3 = Color3.fromRGB(255, 69, 58)
-            PingIcon.Image = pingHighIcon
-        end
-    end)
 
     local function toggleUI()
         if isGuiOpened then
