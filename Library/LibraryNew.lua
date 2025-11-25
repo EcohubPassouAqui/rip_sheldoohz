@@ -1,12 +1,4 @@
---[[
-
-Copyright (C) 2025 github.com/donfushii
-Powered By Imperium ♡
-
---]]
-
 local lib = {RainbowColorValue = 0, HueSelectionPosition = 0}
-
 local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -31,18 +23,23 @@ local PresetColor = Color3.fromRGB(44, 120, 224)
 local CloseBind = Enum.KeyCode.RightControl
 local isGuiOpened = true
 
+-- Definindo variáveis ausentes
+local logoAsset = "rbxassetid://71610434705093"  -- Substitua pelo ID real do logo
+local scriptOwner = "rbxassetid://71610434705093"  -- Substitua pelo ID real do ícone do desenvolvedor
+local http_request = http_request or request  -- Fallback para executores que suportam request
+
 local ui = Instance.new("ScreenGui")
 ui.Name = "EcoHub"
 ui.Parent = game.CoreGui
 ui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 function lib.randomString()
-	local length = math.random(10,20)
-	local array = {}
-	for i = 1, length do
-		array[i] = string.char(math.random(32,126))
-	end
-	return table.concat(array)
+    local length = math.random(10,20)
+    local array = {}
+    for i = 1, length do
+        array[i] = string.char(math.random(32,126))
+    end
+    return table.concat(array)
 end
 
 -- [ DRAGGABLE FUNCTION'S ] --
@@ -121,25 +118,25 @@ local function MakeDraggable(topbarobject, object)
 end
 
 function lib:runtime(funct)
-	if typeof(funct) == "function" then
-		RunService.RenderStepped:Connect(funct)
-	else
-		print("> EcoHub  |  Runtime  •  Argument", "Argument must be a function.", {}, nil, {})
-	end
+    if typeof(funct) == "function" then
+        RunService.RenderStepped:Connect(funct)
+    else
+        print("> EcoHub  |  Runtime  •  Argument", "Argument must be a function.", {}, nil, {})
+    end
 end
 
 function lib:FireTouch(gameservice)
-	lib:descendant(gameservice, function(v)
-		if v:IsA("TouchTransmitter") then
-			if firetouchinterest then
-				firetouchinterest(LocalPlayer.Character.HumanoidRootPart,v.Parent,0)
-				wait()
-				firetouchinterest(LocalPlayer.Character.HumanoidRootPart,v.Parent,1)
-			else
-				print("> EcoHub  |  FireTouch  •  Your executor doesnt support firetouchinterest()  |  Attempt to index nil function with 'firetouchinterest'")
-			end
-		end
-	end)
+    lib:descendant(gameservice, function(v)
+        if v:IsA("TouchTransmitter") then
+            if firetouchinterest then
+                firetouchinterest(LocalPlayer.Character.HumanoidRootPart,v.Parent,0)
+                wait()
+                firetouchinterest(LocalPlayer.Character.HumanoidRootPart,v.Parent,1)
+            else
+                print("> EcoHub  |  FireTouch  •  Your executor doesnt support firetouchinterest()  |  Attempt to index nil function with 'firetouchinterest'")
+            end
+        end
+    end)
 end
 
 -- [ CURRENT HOUR ] --
@@ -170,16 +167,6 @@ end
 function lib:SetTitle(titleText)
     if self.Title then
         self.Title.Text = titleText
-    end
-end
-
--- [ DYNAMIC ISLAND ] --
-
-local function loadAsset(path)
-    if isfile(path) then
-        return getcustomasset(path)
-    else
-        return "rbxassetid://0"
     end
 end
 
