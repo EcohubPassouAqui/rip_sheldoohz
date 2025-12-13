@@ -756,7 +756,6 @@ function Components:CreateParagraph(parent, config)
     ParagraphFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     ParagraphFrame.AutomaticSize = Enum.AutomaticSize.Y
     ParagraphFrame.Parent = parent
-    
     Utils:CreateCorner(ParagraphFrame, 6)
     
     local ParagraphTitle = Instance.new("TextLabel")
@@ -789,7 +788,19 @@ function Components:CreateParagraph(parent, config)
     Padding.PaddingBottom = UDim.new(0, 10)
     Padding.Parent = ParagraphFrame
     
-    return ParagraphFrame
+    local ParagraphObject = {}
+    
+    function ParagraphObject:Set(newConfig)
+        if newConfig.Title then
+            ParagraphTitle.Text = newConfig.Title
+            ParagraphFrame.Name = newConfig.Title
+        end
+        if newConfig.Content then
+            ParagraphContent.Text = newConfig.Content
+        end
+    end
+    
+    return ParagraphObject
 end
 
 function Components:CreateColorPicker(parent, config)
