@@ -78,7 +78,7 @@ function Library:GetIcon(iconName)
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UILibrary"
+ScreenGui.Name = "Spicy"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
 
