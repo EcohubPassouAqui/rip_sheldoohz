@@ -3,7 +3,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Ecohu
 
 -- Exemplo de uso com os novos ícones
 local Window = Library:CreateWindow({
-    Title = "EcoHub Brookhaven",
+    Title = "EcoHub",
     SubTitle = "discord.gg/ecohub - By rip_sheldoohz",
     TabWidth = 160,
     Size = UDim2.fromOffset(550, 500),
