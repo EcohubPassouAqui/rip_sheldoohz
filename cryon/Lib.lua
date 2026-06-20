@@ -1147,6 +1147,240 @@ function EcoHub:CreateWindow(config)
 				}
 			end
 
+			function v_u_120:AddColorPicker(cfg)
+				if type(cfg) == "string" then
+					cfg = { Title = cfg }
+				end
+				cfg = cfg or {}
+				local titulo = cfg.Title or "Color"
+				local desc = cfg.Description or ""
+				local callback = cfg.Callback
+				local color = cfg.Default or v_u_10(255, 100, 50)
+				local enabled = true
+
+				local hasDesc = desc and desc ~= ""
+				local h = hasDesc and v_u_66 or v_u_65
+				local f = v_u_122(h)
+
+				local titleLbl = v_u_54("TextLabel", {
+					Size = v_u_7(0.55, -16, 0, 14),
+					Position = hasDesc and v_u_7(0, 12, 0, 8) or v_u_7(0, 12, 0.5, -7),
+					BackgroundTransparency = 1,
+					Text = titulo,
+					TextColor3 = v_u_64.textPri, TextSize = 11, Font = v_u_15.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 4, Parent = f,
+				})
+
+				local colorBox = v_u_54("Frame", {
+					Size = v_u_7(0, 28, 0, 28),
+					Position = v_u_7(1, -40, 0.5, -14),
+					BackgroundColor3 = color,
+					BorderSizePixel = 0, ZIndex = 5, Parent = f,
+				})
+				v_u_50(colorBox, 6)
+				v_u_52(colorBox, v_u_64.border, 1.5)
+
+				local descLbl = v_u_124(f, 12, hasDesc, desc)
+
+				local function updateColor(c)
+					color = c
+					colorBox.BackgroundColor3 = color
+					local ok, err = pcall(function() if callback then callback(color) end end)
+					if not ok then v_u_58("ColorPicker", err) end
+				end
+
+				local btn = v_u_54("TextButton", {
+					Size = v_u_8(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 7, Parent = f,
+				})
+
+				btn.MouseButton1Click:Connect(function()
+					if not enabled then return end
+					local h, s, v = v_u_12(color)
+					local pickerGui = v_u_54("ScreenGui", {
+						Name = "ColorPickerGui", Parent = v_u_5,
+						ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false,
+					})
+
+					local pickerFrame = v_u_54("Frame", {
+						Name = "PickerFrame", Parent = pickerGui,
+						BackgroundColor3 = v_u_64.bg,
+						Position = v_u_7(0.5, -150, 0.5, -120),
+						Size = v_u_7(0, 300, 0, 240),
+						Active = true, BorderSizePixel = 0, ZIndex = 100,
+					})
+					v_u_50(pickerFrame, 10)
+					v_u_52(pickerFrame, v_u_64.border, 1.5)
+
+					-- HSV Picker
+					local hsvFrame = v_u_54("Frame", {
+						Parent = pickerFrame, BackgroundColor3 = v_u_64.elBg,
+						Position = v_u_7(0, 10, 0, 10),
+						Size = v_u_7(1, -20, 0, 160),
+						BorderSizePixel = 0, ZIndex = 101,
+					})
+					v_u_50(hsvFrame, 6)
+
+					-- Hue Bar
+					local hueFrame = v_u_54("Frame", {
+						Parent = hsvFrame, BackgroundColor3 = v_u_64.card,
+						Position = v_u_7(0, 0, 1, -20),
+						Size = v_u_7(1, 0, 0, 18),
+						BorderSizePixel = 0, ZIndex = 102,
+					})
+					v_u_50(hueFrame, 4)
+
+					local grad = v_u_54("UIGradient", {
+						Rotation = 90,
+						Parent = hueFrame,
+					})
+					grad.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, v_u_11(0, 1, 1)),
+						ColorSequenceKeypoint.new(0.17, v_u_11(0.17, 1, 1)),
+						ColorSequenceKeypoint.new(0.33, v_u_11(0.33, 1, 1)),
+						ColorSequenceKeypoint.new(0.5, v_u_11(0.5, 1, 1)),
+						ColorSequenceKeypoint.new(0.67, v_u_11(0.67, 1, 1)),
+						ColorSequenceKeypoint.new(0.83, v_u_11(0.83, 1, 1)),
+						ColorSequenceKeypoint.new(1, v_u_11(1, 1, 1)),
+					})
+
+					-- SV Picker
+					local svFrame = v_u_54("Frame", {
+						Parent = hsvFrame, BackgroundColor3 = v_u_11(h, 1, 1),
+						Position = v_u_7(0, 0, 0, 0),
+						Size = v_u_7(1, 0, 1, -20),
+						BorderSizePixel = 0, ZIndex = 101,
+					})
+					v_u_50(svFrame, 4)
+
+					local svGrad = v_u_54("UIGradient", {
+						Parent = svFrame,
+					})
+					svGrad.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, v_u_10(255, 255, 255)),
+						ColorSequenceKeypoint.new(1, v_u_11(h, 1, 1)),
+					})
+					svGrad.Rotation = 0
+
+					-- Buttons
+					local okBtn = v_u_54("TextButton", {
+						Parent = pickerFrame, BackgroundColor3 = v_u_64.elBg,
+						Position = v_u_7(0, 10, 1, -30),
+						Size = v_u_7(0.45, -15, 0, 22),
+						Text = "OK", TextColor3 = v_u_64.textPri,
+						TextSize = 10, Font = v_u_15.GothamBold,
+						BorderSizePixel = 0, ZIndex = 102,
+					})
+					v_u_50(okBtn, 5)
+
+					local cancelBtn = v_u_54("TextButton", {
+						Parent = pickerFrame, BackgroundColor3 = v_u_64.elBg,
+						Position = v_u_7(0.55, 5, 1, -30),
+						Size = v_u_7(0.45, -15, 0, 22),
+						Text = "Cancel", TextColor3 = v_u_64.textPri,
+						TextSize = 10, Font = v_u_15.GothamBold,
+						BorderSizePixel = 0, ZIndex = 102,
+					})
+					v_u_50(cancelBtn, 5)
+
+					local hueHandle = v_u_54("Frame", {
+						Parent = hueFrame, BackgroundColor3 = v_u_10(200, 200, 200),
+						Position = v_u_7(h, 0, 0.5, -5),
+						Size = v_u_7(0, 2, 1, 10),
+						BorderSizePixel = 0, ZIndex = 103,
+					})
+
+					local svHandle = v_u_54("Frame", {
+						Parent = svFrame, BackgroundColor3 = v_u_10(255, 255, 255),
+						Position = v_u_7(s, -4, 1, -v*140-4),
+						Size = v_u_7(0, 8, 0, 8),
+						BorderSizePixel = 0, ZIndex = 103,
+					})
+					v_u_50(svHandle, 4)
+					v_u_52(svHandle, v_u_10(0, 0, 0), 1)
+
+					local hueDrag = false
+					local svDrag = false
+
+					hueFrame.InputBegan:Connect(function(inp)
+						if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+							hueDrag = true
+						end
+					end)
+
+					svFrame.InputBegan:Connect(function(inp)
+						if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+							svDrag = true
+						end
+					end)
+
+					v_u_2.InputEnded:Connect(function(inp)
+						if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+							hueDrag = false
+							svDrag = false
+						end
+					end)
+
+					v_u_2.InputChanged:Connect(function(inp)
+						if inp.UserInputType == Enum.UserInputType.MouseMovement then
+							if hueDrag and hueFrame and hueFrame.Parent then
+								local ab, sz = hueFrame.AbsolutePosition, hueFrame.AbsoluteSize
+								h = v_u_16((inp.Position.X - ab.X) / sz.X, 0, 1)
+								hueHandle.Position = v_u_7(h, -1, 0.5, -5)
+								svFrame.BackgroundColor3 = v_u_11(h, 1, 1)
+								color = v_u_11(h, s, v)
+								colorBox.BackgroundColor3 = color
+							end
+							if svDrag and svFrame and svFrame.Parent then
+								local ab, sz = svFrame.AbsolutePosition, svFrame.AbsoluteSize
+								s = v_u_16((inp.Position.X - ab.X) / sz.X, 0, 1)
+								v = v_u_16(1 - (inp.Position.Y - ab.Y) / sz.Y, 0, 1)
+								svHandle.Position = v_u_7(s, -4, 1, -v*140-4)
+								color = v_u_11(h, s, v)
+								colorBox.BackgroundColor3 = color
+							end
+						end
+					end)
+
+					okBtn.MouseButton1Click:Connect(function()
+						updateColor(color)
+						pickerGui:Destroy()
+					end)
+
+					cancelBtn.MouseButton1Click:Connect(function()
+						pickerGui:Destroy()
+					end)
+				end)
+
+				btn.MouseEnter:Connect(function() if enabled then v_u_49(f, { BackgroundColor3 = v_u_64.elBgHov }, 0.1) end end)
+				btn.MouseLeave:Connect(function() if enabled then v_u_49(f, { BackgroundColor3 = v_u_64.elBg }, 0.1) end end)
+
+				return {
+					Set = function(_, c)
+						color = c
+						colorBox.BackgroundColor3 = color
+					end,
+					Get = function(_) return color end,
+					SetEnabled = function(_, v)
+						enabled = v ~= false
+						v_u_123(f, not enabled)
+						v_u_49(titleLbl, { TextColor3 = enabled and v_u_64.textPri or v_u_64.disabledTxt }, 0.15)
+					end,
+					SetVisible = function(_, v) if f then f.Visible = v ~= false end end,
+					SetTitle = function(_, v) if titleLbl then titleLbl.Text = tostring(v) end end,
+					SetDescription = function(_, v)
+						if descLbl then
+							local nd = v and v ~= ""
+							descLbl.Text = tostring(v or "")
+							descLbl.Visible = nd
+							f.Size = v_u_7(1, 0, 0, nd and v_u_66 or v_u_65)
+						end
+					end,
+					SetCallback = function(_, fn) callback = fn end,
+					Destroy = function(_) pcall(function() f:Destroy() end) end,
+				}
+			end
+
 			function v_u_120:AddDropdown(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
