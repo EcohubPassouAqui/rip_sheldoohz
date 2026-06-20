@@ -1,4 +1,4 @@
--- // EcoHub UI Library
+-- // EcoHub Library
 local v_u_1 = game:GetService("TweenService")
 local v_u_2 = game:GetService("UserInputService")
 local v_u_3 = game:GetService("RunService")
