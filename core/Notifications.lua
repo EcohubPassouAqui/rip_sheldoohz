@@ -1,6 +1,3 @@
--- // EcoHub Notification System
--- // Made by rip_sheldoohz#0001
-
 local TweenService = game:GetService("TweenService");
 local RunService = game:GetService("RunService");
 local TextService = game:GetService("TextService");
@@ -183,7 +180,7 @@ return {
 		local Title = Properties.Title;
 		local Description = Properties.Description;
 		local Duration = Properties.Duration or 5;
-		if (Title) or (Description) then -- Check that user has provided title and/or description
+		if (Title) or (Description) then
 			local Y = Title and 26 or 0;
 			if (Description) then
 				local TextSize = TextService:GetTextSize(Description, DescriptionSettings.Size, DescriptionSettings.Font, Vector2.new(0, 0));
