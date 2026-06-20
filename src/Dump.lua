@@ -1,4 +1,4 @@
-local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/module.lua"))()
+local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/Module.lua"))()
 
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
