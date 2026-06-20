@@ -244,7 +244,7 @@ function EcoHub:CreateWindow(config)
 
 		tabBtn.MouseEnter:Connect(function()
 			if activeTab ~= tabFrames[#tabFrames] then
-				Tween(tabBtn, {BackgroundColor3 = Colors.elemHover}, 0.1)
+				Tween(tabBtn, {BackgroundColor3 = Colors.elBgHov}, 0.1)
 			end
 		end)
 
