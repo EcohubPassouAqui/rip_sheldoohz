@@ -1,6 +1,6 @@
 # Notifications
 ```md
-local Notifications = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/EcoHub/refs/heads/main/Notifications/EcoHub.lua"))();
+local Notifications = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/core/Notifications.lua"))();
 local Notify = Notifications.Notify;
 # Part 1
 wait(1);
