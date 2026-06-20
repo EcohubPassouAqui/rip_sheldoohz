@@ -22,128 +22,29 @@ local v_u_20 = workspace
 local v_u_21 = game.Teams
 local v_u_22 = v_u_4:GetPlayers()
 
--- // Biblioteca Principal
 local EcoHub = {}
 EcoHub.__index = EcoHub
 
--- // Bibliotecas Externas
 local v_u_23 = {}
 local v_u_24 = {}
 
 local v_u_25, v_u_26 = pcall(function()
-	return loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/MynexHub/refs/heads/main/MynexHub%20Lib/scr/Icons.luau"))()
+	return loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/Icons.lua"))()
 end)
 if v_u_25 and v_u_26 then v_u_23 = v_u_26 end
 
 local v_u_27, v_u_28 = pcall(function()
-	return loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/MynexHub/refs/heads/main/MynexHub%20Lib/scr/Notifications/Notifications.luau"))()
+	return loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/core/Notifications.lua"))()
 end)
 if v_u_27 and v_u_28 then v_u_24 = v_u_28 end
 
--- // Sistema de Salvamento
-local v_u_29 = {}
-local v_u_30 = nil
-local v_u_31 = false
-
-local function v_u_32()
-	if v_u_30 then return v_u_30 end
-	local v_u_33 = tostring(game.Name or "unknown")
-	v_u_33 = v_u_33:gsub("[^%w%s%-_]", ""):gsub("%s+", "_"):sub(1, 40)
-	if v_u_33 == "" then v_u_33 = "unknown" end
-	v_u_30 = "EcoHub/" .. v_u_33 .. "_config.json"
-	return v_u_30
-end
-
-local function v_u_34()
-	pcall(function()
-		if not isfolder("EcoHub") then makefolder("EcoHub") end
-	end)
-end
-
-local function v_u_35(v)
-	if type(v) == "boolean" then
-		return v and "true" or "false"
-	elseif type(v) == "number" then
-		return tostring(v)
-	elseif type(v) == "string" then
-		return '"' .. v:gsub('\\', '\\\\'):gsub('"', '\\"') .. '"'
-	elseif typeof(v) == "Color3" then
-		return '"__color3__' .. v_u_17(v.R*255) .. ',' .. v_u_17(v.G*255) .. ',' .. v_u_17(v.B*255) .. '"'
-	end
-	return '"[unsupported]"'
-end
-
-local function v_u_36()
-	local v_u_37 = {}
-	for k, v in pairs(v_u_29) do
-		table.insert(v_u_37, '"' .. tostring(k) .. '":' .. v_u_35(v))
-	end
-	local v_u_38 = tostring(game.PlaceId or 0)
-	local v_u_39 = tostring(game.Name or "unknown"):gsub('"', '\\"')
-	return '{"nome":"' .. v_u_39 .. '","id":"' .. v_u_38 .. '","saves":{' .. table.concat(v_u_37, ",") .. '}}'
-end
-
-local function v_u_40(str)
-	local v_u_41 = {}
-	if not str or str == "" then return v_u_41 end
-	local v_u_42 = str:match('"saves"%s*:%s*({[^}]*})')
-	if not v_u_42 then return v_u_41 end
-	v_u_42 = v_u_42:match("^%s*{(.+)}%s*$")
-	if not v_u_42 then return v_u_41 end
-	for key, val in v_u_42:gmatch('"([^"]+)"%s*:%s*([^,}]+)') do
-		val = val:match("^%s*(.-)%s*$")
-		if val == "true" then
-			v_u_41[key] = true
-		elseif val == "false" then
-			v_u_41[key] = false
-		elseif val:match('^"__color3__(%d+),(%d+),(%d+)"$') then
-			local r, g, b = val:match('^"__color3__(%d+),(%d+),(%d+)"$')
-			v_u_41[key] = v_u_10(tonumber(r), tonumber(g), tonumber(b))
-		elseif val:match('^"(.*)"$') then
-			v_u_41[key] = val:match('^"(.*)"$')
-		else
-			local n = tonumber(val)
-			if n then v_u_41[key] = n end
-		end
-	end
-	return v_u_41
-end
-
-local function v_u_43()
-	v_u_34()
-	pcall(function()
-		local v_u_44 = v_u_32()
-		if isfile(v_u_44) then
-			local v_u_45 = v_u_40(readfile(v_u_44))
-			for k, v in pairs(v_u_45) do v_u_29[k] = v end
-		end
-	end)
-end
-
-local function v_u_46()
-	if not v_u_31 then return end
-	v_u_31 = false
-	v_u_34()
-	pcall(function()
-		writefile(v_u_32(), v_u_36())
-	end)
-end
-
 local function v_u_47(id)
-	if not id or id == "" then return nil end
-	return v_u_29[id]
+	return nil
 end
 
 local function v_u_48(id, val)
-	if not id or id == "" then return end
-	v_u_29[id] = val
-	v_u_31 = true
-	task.defer(v_u_46)
 end
 
-v_u_43()
-
--- // Funcoes Auxiliares
 local function v_u_49(obj, props, t, style)
 	if not obj or not obj.Parent then return end
 	v_u_1:Create(obj, v_u_13(t or 0.15, style or v_u_14.Quad), props):Play()
@@ -205,7 +106,6 @@ local function v_u_60(hex)
 	return nil
 end
 
--- // Funcao Jogadores em Tempo Real
 local function v_u_61()
 	local v_u_62 = {}
 	for _, v_u_63 in ipairs(v_u_4:GetPlayers()) do
@@ -214,7 +114,6 @@ local function v_u_61()
 	return v_u_62
 end
 
--- // Tema de Cores
 local v_u_64 = {
 	bg = v_u_10(13, 13, 13),
 	topbar = v_u_10(20, 20, 20),
@@ -262,13 +161,11 @@ local v_u_64 = {
 	searchBord = v_u_10(38, 38, 44),
 }
 
--- // Constantes de Interface
 local v_u_65 = 40
 local v_u_66 = 58
 local v_u_67 = 580
 local v_u_68 = 460
 
--- // Criacao de Janela
 function EcoHub:CreateWindow(config)
 	config = config or {}
 	local v_u_72 = config.Title or "EcoHub"
@@ -299,7 +196,6 @@ function EcoHub:CreateWindow(config)
 		ClipsDescendants = true, BorderSizePixel = 0, ZIndex = 1,
 	})
 
-	-- // Barra Superior
 	local v_u_77 = v_u_54("Frame", {
 		Name = "TopBar", Parent = v_u_76,
 		BackgroundColor3 = v_u_64.topbar, Size = v_u_7(1, 0, 0, 58),
@@ -329,7 +225,6 @@ function EcoHub:CreateWindow(config)
 		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3,
 	})
 
-	-- // Botao Minimizar
 	local v_u_81 = v_u_54("TextButton", {
 		Parent = v_u_77, BackgroundTransparency = 1,
 		Position = v_u_7(1, -40, 0.5, -12), Size = v_u_7(0, 24, 0, 24),
@@ -340,7 +235,6 @@ function EcoHub:CreateWindow(config)
 		Image = v_u_56("move"), ImageColor3 = v_u_10(95, 95, 100), ZIndex = 4,
 	})
 
-	-- // Area de Paginas (sem search bar: topbar=58, tabbar=58, area = 460-58-58 = 344)
 	local v_u_82 = v_u_54("Frame", {
 		Name = "PageArea", Parent = v_u_76, BackgroundTransparency = 1,
 		Position = v_u_7(0, 0, 0, 58),
@@ -348,7 +242,6 @@ function EcoHub:CreateWindow(config)
 		ClipsDescendants = false,
 	})
 
-	-- // Barra de Abas
 	local v_u_83 = v_u_54("Frame", {
 		Name = "TabBar", Parent = v_u_76,
 		BackgroundColor3 = v_u_64.tabbar,
@@ -365,7 +258,6 @@ function EcoHub:CreateWindow(config)
 		Position = v_u_7(0, 0, 0, 0), Size = v_u_7(1, 0, 0, 1), BorderSizePixel = 0, ZIndex = 6,
 	})
 
-	-- // Sistema de Abas
 	local v_u_84 = 48
 	local v_u_85 = 112
 	local v_u_86 = 16
@@ -436,7 +328,6 @@ function EcoHub:CreateWindow(config)
 
 	local v_u_94 = {}
 
-	-- // Adicionar Aba
 	function v_u_94:AddTab(cfg)
 		cfg = cfg or {}
 		local name = cfg.Name or ("Tab" .. tostring(#v_u_87 + 1))
@@ -572,7 +463,6 @@ function EcoHub:CreateWindow(config)
 		local v_u_109 = {}
 		local v_u_110 = { left = 0, right = 0 }
 
-		-- // Adicionar Secao
 		function v_u_109:AddSection(cfg)
 			cfg = cfg or {}
 			if type(cfg) == "string" then
@@ -588,16 +478,13 @@ function EcoHub:CreateWindow(config)
 
 			local v_u_115 = v_u_54("Frame", {
 				Size = v_u_7(1, 0, 0, SEC_H),
-				-- Cor igual ao fundo do painel, sem textura
 				BackgroundColor3 = v_u_64.bg,
 				BorderSizePixel = 0, LayoutOrder = v_u_110[v_u_111],
 				ZIndex = 2, ClipsDescendants = true, Parent = v_u_114,
 			})
 			v_u_50(v_u_115, 6)
-			-- Borda bem sutil
 			v_u_52(v_u_115, v_u_64.secBord, 1, 0.5)
 
-			-- // Efeito Shimmer na Secao
 			local v_u_116 = v_u_54("Frame", {
 				Size = v_u_7(0, 80, 1, 0), Position = v_u_7(-0.5, 0, 0, 0),
 				BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Parent = v_u_115,
@@ -686,7 +573,6 @@ function EcoHub:CreateWindow(config)
 				return lbl
 			end
 
-			-- // Label
 			function v_u_120:AddLabel(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
@@ -724,22 +610,15 @@ function EcoHub:CreateWindow(config)
 
 				local descLbl = v_u_124(f, 12, hasDesc, desc)
 
-				if saveId ~= "" then
-					local saved = v_u_47(saveId)
-					if saved ~= nil then valueLbl.Text = tostring(saved) end
-				end
-
 				return {
 					Set = function(_, v)
 						if valueLbl then valueLbl.Text = tostring(v) end
-						if saveId ~= "" then v_u_48(saveId, tostring(v)) end
 						pcall(function() if callback then callback(tostring(v)) end end)
 					end,
 					Get = function(_) return valueLbl and valueLbl.Text or "" end,
 					SetTitle = function(_, v) if titleLbl then titleLbl.Text = tostring(v) end end,
 					SetValue = function(_, v)
 						if valueLbl then valueLbl.Text = tostring(v) end
-						if saveId ~= "" then v_u_48(saveId, tostring(v)) end
 						pcall(function() if callback then callback(tostring(v)) end end)
 					end,
 					SetDescription = function(_, v)
@@ -760,7 +639,6 @@ function EcoHub:CreateWindow(config)
 				}
 			end
 
-			-- // Toggle
 			function v_u_120:AddToggle(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
@@ -772,11 +650,6 @@ function EcoHub:CreateWindow(config)
 				local callback = cfg.Callback
 				local state = cfg.Default == true
 				local enabled = true
-
-				if saveId ~= "" then
-					local saved = v_u_47(saveId)
-					if saved ~= nil then state = (saved == true) end
-				end
 
 				local hasDesc = desc and desc ~= ""
 				local h = hasDesc and v_u_66 or v_u_65
@@ -826,22 +699,16 @@ function EcoHub:CreateWindow(config)
 					if not enabled then return end
 					state = not state
 					refresh(state)
-					v_u_48(saveId, state)
 					local ok, err = pcall(function() if callback then callback(state) end end)
 					if not ok then v_u_58("Toggle", err) end
 				end)
 				btn2.MouseEnter:Connect(function() if enabled then v_u_49(f, { BackgroundColor3 = v_u_64.elBgHov }, 0.1) end end)
 				btn2.MouseLeave:Connect(function() if enabled then v_u_49(f, { BackgroundColor3 = v_u_64.elBg }, 0.1) end end)
 
-				if saveId ~= "" and v_u_47(saveId) ~= nil then
-					pcall(function() if callback then callback(state) end end)
-				end
-
 				return {
 					Set = function(_, v)
 						state = v == true
 						refresh(state)
-						v_u_48(saveId, state)
 					end,
 					Get = function(_) return state end,
 					SetEnabled = function(_, v)
@@ -865,14 +732,12 @@ function EcoHub:CreateWindow(config)
 					Toggle = function(_)
 						state = not state
 						refresh(state)
-						v_u_48(saveId, state)
 						pcall(function() if callback then callback(state) end end)
 					end,
 					Destroy = function(_) pcall(function() f:Destroy() end) end,
 				}
 			end
 
-			-- // Checkbox
 			function v_u_120:AddCheckbox(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
@@ -884,11 +749,6 @@ function EcoHub:CreateWindow(config)
 				local callback = cfg.Callback
 				local state = cfg.Default == true
 				local enabled = true
-
-				if saveId ~= "" then
-					local saved = v_u_47(saveId)
-					if saved ~= nil then state = (saved == true) end
-				end
 
 				local hasDesc = desc and desc ~= ""
 				local h = hasDesc and v_u_66 or v_u_65
@@ -933,22 +793,16 @@ function EcoHub:CreateWindow(config)
 					if not enabled then return end
 					state = not state
 					refresh(state)
-					v_u_48(saveId, state)
 					local ok, err = pcall(function() if callback then callback(state) end end)
 					if not ok then v_u_58("Checkbox", err) end
 				end)
 				btn2.MouseEnter:Connect(function() if enabled then v_u_49(f, { BackgroundColor3 = v_u_64.elBgHov }, 0.1) end end)
 				btn2.MouseLeave:Connect(function() if enabled then v_u_49(f, { BackgroundColor3 = v_u_64.elBg }, 0.1) end end)
 
-				if saveId ~= "" and v_u_47(saveId) ~= nil then
-					pcall(function() if callback then callback(state) end end)
-				end
-
 				return {
 					Set = function(_, v)
 						state = v == true
 						refresh(state)
-						v_u_48(saveId, state)
 					end,
 					Get = function(_) return state end,
 					SetEnabled = function(_, v)
@@ -972,14 +826,12 @@ function EcoHub:CreateWindow(config)
 					Toggle = function(_)
 						state = not state
 						refresh(state)
-						v_u_48(saveId, state)
 						pcall(function() if callback then callback(state) end end)
 					end,
 					Destroy = function(_) pcall(function() f:Destroy() end) end,
 				}
 			end
 
-			-- // Button
 			function v_u_120:AddButton(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
@@ -1107,7 +959,6 @@ function EcoHub:CreateWindow(config)
 				}
 			end
 
-			-- // Slider
 			function v_u_120:AddSlider(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
@@ -1125,13 +976,6 @@ function EcoHub:CreateWindow(config)
 				local val = v_u_16(cfg.Default or minV, minV, maxV)
 				local enabled = true
 				local drag = false
-
-				if saveId ~= "" then
-					local saved = v_u_47(saveId)
-					if saved ~= nil then
-						val = v_u_16(tonumber(saved) or val, minV, maxV)
-					end
-				end
 
 				local hasDesc = desc and desc ~= ""
 				local RAIL_H = 18
@@ -1208,7 +1052,6 @@ function EcoHub:CreateWindow(config)
 					local p = (val - minV) / math.max(maxV - minV, 0.001)
 					fill.Size = v_u_7(p, 0, 1, 0)
 					updateLabel()
-					if not silent then v_u_48(saveId, val) end
 					if not silent then
 						local ok, err = pcall(function() if callback then callback(val) end end)
 						if not ok then v_u_58("Slider", err) end
@@ -1252,10 +1095,6 @@ function EcoHub:CreateWindow(config)
 						drag = false
 					end
 				end)
-
-				if saveId ~= "" and v_u_47(saveId) ~= nil then
-					pcall(function() if callback then callback(val) end end)
-				end
 
 				return {
 					Set = function(_, vv) setVal(vv) end,
@@ -1308,7 +1147,6 @@ function EcoHub:CreateWindow(config)
 				}
 			end
 
-			-- // Dropdown
 			function v_u_120:AddDropdown(cfg)
 				if type(cfg) == "string" then
 					cfg = { Title = cfg }
@@ -1331,11 +1169,6 @@ function EcoHub:CreateWindow(config)
 				if isPlayers then
 					options = v_u_61()
 					if #options > 0 and selected == "" then selected = options[1] end
-				end
-
-				if saveId ~= "" then
-					local saved = v_u_47(saveId)
-					if saved ~= nil then selected = tostring(saved) end
 				end
 
 				local hasDesc = desc and desc ~= ""
@@ -1373,12 +1206,14 @@ function EcoHub:CreateWindow(config)
 					TextXAlignment = Enum.TextXAlignment.Right,
 					TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 12, Parent = header,
 				})
-				local arrowIcon = v_u_54("ImageLabel", {
-					Size = v_u_7(0, 10, 0, 10),
-					Position = v_u_7(1, -19, 0.5, -5),
-					BackgroundTransparency = 1, Image = v_u_56("chevron-down"),
-					ImageColor3 = v_u_10(80, 80, 88), ZIndex = 13, Parent = header,
+
+				local colorBox = v_u_54("Frame", {
+					Size = v_u_7(0, 14, 0, 14),
+					Position = v_u_7(1, -26, 0.5, -7),
+					BackgroundColor3 = v_u_10(80, 80, 88),
+					BorderSizePixel = 0, ZIndex = 13, Parent = header,
 				})
+				v_u_50(colorBox, 3)
 
 				if isPlayers then
 					v_u_54("ImageLabel", {
@@ -1431,7 +1266,7 @@ function EcoHub:CreateWindow(config)
 					open = false
 					v_u_49(panel, { Size = v_u_7(1, 0, 0, 0) }, 0.2, v_u_14.Quint)
 					v_u_49(wrap, { Size = v_u_7(1, 0, 0, baseH) }, 0.2, v_u_14.Quint)
-					v_u_49(arrowIcon, { Rotation = 0, ImageColor3 = v_u_10(80, 80, 88) }, 0.16)
+					v_u_49(colorBox, { BackgroundColor3 = v_u_10(80, 80, 88) }, 0.16)
 					v_u_49(header, { BackgroundColor3 = v_u_64.elBg }, 0.14)
 				end
 
@@ -1487,7 +1322,6 @@ function EcoHub:CreateWindow(config)
 								selLbl.Text = selected
 								selLbl.TextColor3 = v_u_64.textSec
 							end
-							v_u_48(saveId, selected)
 							buildItems()
 							local ok, err = pcall(function() if callback then callback(selected) end end)
 							if not ok then v_u_58("Dropdown", err) end
@@ -1529,7 +1363,7 @@ function EcoHub:CreateWindow(config)
 						local fH = getExpandedH()
 						v_u_49(panel, { Size = v_u_7(1, 0, 0, fH) }, 0.22, v_u_14.Quint)
 						v_u_49(wrap, { Size = v_u_7(1, 0, 0, baseH + GAP + fH) }, 0.22, v_u_14.Quint)
-						v_u_49(arrowIcon, { Rotation = 180, ImageColor3 = v_u_64.white }, 0.18)
+						v_u_49(colorBox, { BackgroundColor3 = v_u_10(100, 180, 255) }, 0.18)
 						v_u_49(header, { BackgroundColor3 = v_u_64.elBgHov }, 0.12)
 					else
 						closeDropdown()
@@ -1542,10 +1376,6 @@ function EcoHub:CreateWindow(config)
 					if not open and enabled then v_u_49(header, { BackgroundColor3 = v_u_64.elBg }, 0.1) end
 				end)
 
-				if saveId ~= "" and v_u_47(saveId) ~= nil then
-					pcall(function() if callback then callback(selected) end end)
-				end
-
 				return {
 					Set = function(_, v)
 						selected = v
@@ -1553,7 +1383,6 @@ function EcoHub:CreateWindow(config)
 							selLbl.Text = (v and v ~= "") and v or placeholder
 							selLbl.TextColor3 = (v and v ~= "") and v_u_64.textSec or v_u_64.muted
 						end
-						v_u_48(saveId, v)
 						buildItems()
 					end,
 					Get = function(_) return selected end,
@@ -1584,7 +1413,6 @@ function EcoHub:CreateWindow(config)
 										selLbl.Text = (selected ~= "") and selected or placeholder
 										selLbl.TextColor3 = (selected ~= "") and v_u_64.textSec or v_u_64.muted
 									end
-									v_u_48(saveId, selected)
 									pcall(function() if callback then callback(selected) end end)
 								end
 								if open then buildItems() end
@@ -1618,7 +1446,7 @@ function EcoHub:CreateWindow(config)
 						if not enabled and open then closeDropdown() end
 						v_u_123(header, not enabled)
 						v_u_49(titleLbl, { TextColor3 = enabled and v_u_64.textPri or v_u_64.disabledTxt }, 0.15)
-						v_u_49(arrowIcon, { ImageColor3 = enabled and v_u_10(80,80,88) or v_u_64.dim }, 0.15)
+						v_u_49(colorBox, { BackgroundColor3 = enabled and v_u_10(80,80,88) or v_u_64.dim }, 0.15)
 					end,
 					SetVisible = function(_, v) if wrap then wrap.Visible = v ~= false end end,
 					SetTitle = function(_, v) if titleLbl then titleLbl.Text = tostring(v) end end,
@@ -1626,449 +1454,6 @@ function EcoHub:CreateWindow(config)
 					Destroy = function(_)
 						if playerAddConn then pcall(function() playerAddConn:Disconnect() end) end
 						if playerRemoveConn then pcall(function() playerRemoveConn:Disconnect() end) end
-						pcall(function() wrap:Destroy() end)
-					end,
-				}
-			end
-
-			-- // Color Picker
-			function v_u_120:AddColorPicker(cfg)
-				if type(cfg) == "string" then
-					cfg = { Title = cfg }
-				end
-				cfg = cfg or {}
-				local titulo = cfg.Title or "Color Picker"
-				local desc = cfg.Description or ""
-				local saveId = cfg.SaveId or ""
-				local callback = cfg.Callback
-				local currentColor = cfg.Default or v_u_10(255, 100, 50)
-				local enabled = true
-				local open = false
-
-				if saveId ~= "" then
-					local saved = v_u_47(saveId)
-					if saved ~= nil and typeof(saved) == "Color3" then
-						currentColor = saved
-					end
-				end
-
-				local hh, ss, vv = v_u_12(currentColor)
-
-				local hasDesc = desc and desc ~= ""
-				local baseH = hasDesc and v_u_66 or v_u_65
-
-				local GAP = 6
-				local PAD_H = 10
-				local SV_H = 116
-				local HUE_H = 12
-				local ROW_H = 26
-				local GAP_SV = 8
-				local GAP_HUE = 8
-				local PAD_BOT = 10
-				local PANEL_H = PAD_H + SV_H + GAP_SV + HUE_H + GAP_HUE + ROW_H + PAD_BOT
-
-				v_u_110[v_u_111] = v_u_110[v_u_111] + 1
-				local wrap = v_u_54("Frame", {
-					Size = v_u_7(1, 0, 0, baseH),
-					BackgroundTransparency = 1,
-					ClipsDescendants = false,
-					LayoutOrder = v_u_110[v_u_111],
-					ZIndex = 10, Parent = v_u_114,
-				})
-
-				local header = v_u_54("Frame", {
-					Size = v_u_7(1, 0, 0, baseH),
-					BackgroundColor3 = v_u_64.elBg,
-					BorderSizePixel = 0, ZIndex = 11, Parent = wrap,
-				})
-				v_u_50(header, 7)
-
-				local titleLbl = v_u_54("TextLabel", {
-					Size = v_u_7(0.5, -16, 0, 14),
-					Position = hasDesc and v_u_7(0, 12, 0, 8) or v_u_7(0, 12, 0.5, -7),
-					BackgroundTransparency = 1, Text = titulo,
-					TextColor3 = v_u_64.textPri, TextSize = 11, Font = v_u_15.Gotham,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 12, Parent = header,
-				})
-				local descLbl = hasDesc and v_u_124(header, 12, true, desc) or nil
-
-				local swatchOuter = v_u_54("Frame", {
-					Size = v_u_7(0, 52, 0, 20),
-					Position = v_u_7(1, -76, 0.5, -10),
-					BackgroundColor3 = v_u_10(35, 35, 40),
-					BorderSizePixel = 0, ZIndex = 12, Parent = header,
-				})
-				v_u_50(swatchOuter, 5)
-				v_u_52(swatchOuter, v_u_10(55, 55, 62), 1, 0)
-				local swatch = v_u_54("Frame", {
-					Size = v_u_7(1, -4, 1, -4), Position = v_u_7(0, 2, 0, 2),
-					BackgroundColor3 = currentColor,
-					BorderSizePixel = 0, ZIndex = 13, Parent = swatchOuter,
-				})
-				v_u_50(swatch, 4)
-
-				local chevron = v_u_54("ImageLabel", {
-					Size = v_u_7(0, 9, 0, 9),
-					Position = v_u_7(1, -17, 0.5, -4.5),
-					BackgroundTransparency = 1,
-					Image = v_u_56("chevron-down"),
-					ImageColor3 = v_u_10(70, 70, 78), ZIndex = 13, Parent = header,
-				})
-
-				local panel = v_u_54("Frame", {
-					Size = v_u_7(1, 0, 0, 0),
-					Position = v_u_7(0, 0, 0, baseH + GAP),
-					BackgroundColor3 = v_u_10(18, 18, 21),
-					BorderSizePixel = 0,
-					ClipsDescendants = false,
-					ZIndex = 20, Parent = wrap,
-				})
-				v_u_50(panel, 8)
-				-- Sem UIStroke no panel do colorpicker (remove linha cinza externa)
-
-				local content = v_u_54("Frame", {
-					Size = v_u_8(1, 1),
-					BackgroundTransparency = 1,
-					ClipsDescendants = true,
-					ZIndex = 20, Parent = panel,
-				})
-				v_u_50(content, 8)
-
-				local svY = PAD_H
-				local svFrame = v_u_54("Frame", {
-					Size = v_u_7(1, -(PAD_H * 2), 0, SV_H),
-					Position = v_u_7(0, PAD_H, 0, svY),
-					BackgroundColor3 = v_u_11(hh, 1, 1),
-					BorderSizePixel = 0,
-					ClipsDescendants = false,
-					ZIndex = 22, Parent = content,
-				})
-				v_u_50(svFrame, 6)
-
-				local svW = v_u_54("Frame", {
-					Size = v_u_8(1, 1), BackgroundColor3 = v_u_10(255,255,255),
-					BorderSizePixel = 0, ZIndex = 23, Parent = svFrame,
-				})
-				v_u_50(svW, 6)
-				v_u_54("UIGradient", {
-					Transparency = NumberSequence.new({
-						NumberSequenceKeypoint.new(0, 0),
-						NumberSequenceKeypoint.new(1, 1),
-					}), Parent = svW,
-				})
-
-				local svB = v_u_54("Frame", {
-					Size = v_u_8(1, 1), BackgroundColor3 = v_u_10(0,0,0),
-					BorderSizePixel = 0, ZIndex = 24, Parent = svFrame,
-				})
-				v_u_50(svB, 6)
-				v_u_54("UIGradient", {
-					Transparency = NumberSequence.new({
-						NumberSequenceKeypoint.new(0, 1),
-						NumberSequenceKeypoint.new(1, 0),
-					}), Rotation = 90, Parent = svB,
-				})
-
-				local SV_R = 8
-				local svCur = v_u_54("Frame", {
-					Size = v_u_7(0, SV_R*2, 0, SV_R*2),
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = v_u_7(ss, 0, 1-vv, 0),
-					BackgroundColor3 = currentColor,
-					BorderSizePixel = 0, ZIndex = 28, Parent = svFrame,
-				})
-				v_u_50(svCur, SV_R)
-				v_u_52(svCur, v_u_10(255,255,255), 2, 0)
-
-				local svHit = v_u_54("TextButton", {
-					Size = v_u_8(1, 1),
-					BackgroundTransparency = 1, Text = "", ZIndex = 27, Parent = svFrame,
-				})
-
-				local hueY2 = svY + SV_H + GAP_SV
-				local hueFrame = v_u_54("Frame", {
-					Size = v_u_7(1, -(PAD_H*2), 0, HUE_H),
-					Position = v_u_7(0, PAD_H, 0, hueY2),
-					BorderSizePixel = 0,
-					ClipsDescendants = false,
-					ZIndex = 22, Parent = content,
-				})
-				v_u_50(hueFrame, HUE_H/2)
-				v_u_54("UIGradient", {
-					Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, v_u_10(255,0,0)),
-						ColorSequenceKeypoint.new(0.166, v_u_10(255,255,0)),
-						ColorSequenceKeypoint.new(0.333, v_u_10(0,255,0)),
-						ColorSequenceKeypoint.new(0.5, v_u_10(0,255,255)),
-						ColorSequenceKeypoint.new(0.666, v_u_10(0,0,255)),
-						ColorSequenceKeypoint.new(0.833, v_u_10(255,0,255)),
-						ColorSequenceKeypoint.new(1, v_u_10(255,0,0)),
-					}), Parent = hueFrame,
-				})
-
-				local HC_W = 5
-				local HC_H = HUE_H + 6
-				local hueCur = v_u_54("Frame", {
-					Size = v_u_7(0, HC_W, 0, HC_H),
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = v_u_7(hh, 0, 0.5, 0),
-					BackgroundColor3 = v_u_10(255,255,255),
-					BorderSizePixel = 0, ZIndex = 26, Parent = hueFrame,
-				})
-				v_u_50(hueCur, 3)
-				v_u_52(hueCur, v_u_10(15,15,18), 1.5, 0)
-
-				local hueHit = v_u_54("TextButton", {
-					Size = v_u_7(1, 0, 1, 10),
-					Position = v_u_7(0, 0, 0, -5),
-					BackgroundTransparency = 1, Text = "", ZIndex = 27, Parent = hueFrame,
-				})
-
-				local infoY2 = hueY2 + HUE_H + GAP_HUE
-				local infoRow = v_u_54("Frame", {
-					Size = v_u_7(1, -(PAD_H*2), 0, ROW_H),
-					Position = v_u_7(0, PAD_H, 0, infoY2),
-					BackgroundTransparency = 1, ZIndex = 22, Parent = content,
-				})
-
-				local prevBox = v_u_54("Frame", {
-					Size = v_u_7(0, ROW_H, 0, ROW_H),
-					BackgroundColor3 = currentColor,
-					BorderSizePixel = 0, ZIndex = 23, Parent = infoRow,
-				})
-				v_u_50(prevBox, 5)
-				-- Sem UIStroke no prevBox (remove linha cinza)
-
-				local hexHolder = v_u_54("Frame", {
-					Size = v_u_7(0, 82, 1, 0),
-					Position = v_u_7(0, ROW_H+6, 0, 0),
-					BackgroundColor3 = v_u_10(13,13,16),
-					BorderSizePixel = 0, ZIndex = 23, Parent = infoRow,
-				})
-				v_u_50(hexHolder, 5)
-				-- Sem UIStroke no hexHolder (remove linha cinza)
-				v_u_54("TextLabel", {
-					Size = v_u_7(0, 16, 1, 0), Position = v_u_7(0, 5, 0, 0),
-					BackgroundTransparency = 1, Text = "#",
-					TextColor3 = v_u_64.muted, TextSize = 9, Font = v_u_15.GothamBold,
-					TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 24, Parent = hexHolder,
-				})
-				local hexBox = v_u_54("TextBox", {
-					Size = v_u_7(1, -20, 1, 0),
-					Position = v_u_7(0, 20, 0, 0),
-					BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 24,
-					Text = v_u_59(currentColor),
-					TextColor3 = v_u_64.textPri,
-					PlaceholderText = "FFFFFF", PlaceholderColor3 = v_u_64.muted,
-					TextSize = 9, Font = v_u_15.Code,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					ClearTextOnFocus = false, Parent = hexHolder,
-				})
-
-				-- Blocos RGB sem UIStroke (remove linhas cinzas)
-				local function mkRGB(lbl2, xOff)
-					local blk = v_u_54("Frame", {
-						Size = v_u_7(0, 40, 1, 0),
-						Position = v_u_7(0, xOff, 0, 0),
-						BackgroundColor3 = v_u_10(13,13,16),
-						BorderSizePixel = 0, ZIndex = 23, Parent = infoRow,
-					})
-					v_u_50(blk, 5)
-					-- SEM UIStroke aqui - remove a linha cinza
-					v_u_54("TextLabel", {
-						Size = v_u_7(0, 12, 1, 0), Position = v_u_7(0, 4, 0, 0),
-						BackgroundTransparency = 1, Text = lbl2,
-						TextColor3 = v_u_64.muted, TextSize = 7, Font = v_u_15.GothamBold,
-						TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 24, Parent = blk,
-					})
-					local nl = v_u_54("TextLabel", {
-						Size = v_u_7(1, -16, 1, 0),
-						Position = v_u_7(0, 16, 0, 0),
-						BackgroundTransparency = 1, Text = "255",
-						TextColor3 = v_u_64.textSec, TextSize = 8, Font = v_u_15.Code,
-						TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 24, Parent = blk,
-					})
-					return nl
-				end
-				local baseRX = ROW_H + 6 + 82 + 6
-				local rLbl = mkRGB("R", baseRX)
-				local gLbl = mkRGB("G", baseRX + 46)
-				local bLbl = mkRGB("B", baseRX + 92)
-
-				local _hexFocused = false
-
-				local function updateAll(fireCallback)
-					currentColor = v_u_11(hh, ss, vv)
-					swatch.BackgroundColor3 = currentColor
-					prevBox.BackgroundColor3 = currentColor
-					svFrame.BackgroundColor3 = v_u_11(hh, 1, 1)
-					svCur.Position = v_u_7(ss, 0, 1-vv, 0)
-					svCur.BackgroundColor3 = currentColor
-					hueCur.Position = v_u_7(hh, 0, 0.5, 0)
-					local hexStr = v_u_59(currentColor)
-					if not _hexFocused then hexBox.Text = hexStr end
-					if rLbl then rLbl.Text = tostring(v_u_17(currentColor.R*255)) end
-					if gLbl then gLbl.Text = tostring(v_u_17(currentColor.G*255)) end
-					if bLbl then bLbl.Text = tostring(v_u_17(currentColor.B*255)) end
-					v_u_48(saveId, currentColor)
-					if fireCallback then
-						local ok, err = pcall(function() if callback then callback(currentColor) end end)
-						if not ok then v_u_58("ColorPicker", err) end
-					end
-				end
-
-				updateAll(false)
-
-				local svDrag = false
-				local hueDrag = false
-
-				local function sampleSV(x, y)
-					if not svFrame or not svFrame.Parent then return end
-					local ab = svFrame.AbsolutePosition
-					local sz = svFrame.AbsoluteSize
-					if sz.X <= 0 or sz.Y <= 0 then return end
-					ss = v_u_16((x - ab.X) / sz.X, 0, 1)
-					vv = 1 - v_u_16((y - ab.Y) / sz.Y, 0, 1)
-					updateAll(true)
-				end
-
-				local function sampleHue(x)
-					if not hueFrame or not hueFrame.Parent then return end
-					local ab = hueFrame.AbsolutePosition
-					local sz = hueFrame.AbsoluteSize
-					if sz.X <= 0 then return end
-					hh = v_u_16((x - ab.X) / sz.X, 0, 1)
-					updateAll(true)
-				end
-
-				svHit.InputBegan:Connect(function(inp)
-					if not enabled then return end
-					if inp.UserInputType ~= Enum.UserInputType.MouseButton1
-						and inp.UserInputType ~= Enum.UserInputType.Touch then return end
-					svDrag = true
-					sampleSV(inp.Position.X, inp.Position.Y)
-				end)
-
-				hueHit.InputBegan:Connect(function(inp)
-					if not enabled then return end
-					if inp.UserInputType ~= Enum.UserInputType.MouseButton1
-						and inp.UserInputType ~= Enum.UserInputType.Touch then return end
-					hueDrag = true
-					sampleHue(inp.Position.X)
-				end)
-
-				local cpMoveConn = v_u_2.InputChanged:Connect(function(inp)
-					if not enabled then return end
-					if inp.UserInputType ~= Enum.UserInputType.MouseMovement
-						and inp.UserInputType ~= Enum.UserInputType.Touch then return end
-					if svDrag then sampleSV(inp.Position.X, inp.Position.Y) end
-					if hueDrag then sampleHue(inp.Position.X) end
-				end)
-
-				local cpEndConn = v_u_2.InputEnded:Connect(function(inp)
-					if inp.UserInputType == Enum.UserInputType.MouseButton1
-						or inp.UserInputType == Enum.UserInputType.Touch then
-						svDrag = false
-						hueDrag = false
-					end
-				end)
-
-				hexBox.Focused:Connect(function() _hexFocused = true end)
-				hexBox.FocusLost:Connect(function()
-					_hexFocused = false
-					if not enabled then return end
-					local c = v_u_60(hexBox.Text)
-					if c then
-						currentColor = c
-						hh, ss, vv = v_u_12(c)
-						updateAll(true)
-					else
-						hexBox.Text = v_u_59(currentColor)
-					end
-				end)
-
-				local function closeCP()
-					open = false
-					v_u_49(panel, { Size = v_u_7(1, 0, 0, 0) }, 0.2, v_u_14.Quint)
-					v_u_49(wrap, { Size = v_u_7(1, 0, 0, baseH) }, 0.2, v_u_14.Quint)
-					v_u_49(chevron, { Rotation = 0, ImageColor3 = v_u_10(70,70,78) }, 0.15)
-					v_u_49(header, { BackgroundColor3 = v_u_64.elBg }, 0.14)
-				end
-
-				local togBtn = v_u_54("TextButton", {
-					Size = v_u_8(1, 1),
-					BackgroundTransparency = 1, Text = "", ZIndex = 15, Parent = header,
-				})
-				togBtn.MouseButton1Click:Connect(function()
-					if not enabled then return end
-					open = not open
-					if open then
-						v_u_49(panel, { Size = v_u_7(1, 0, 0, PANEL_H) }, 0.22, v_u_14.Quint)
-						v_u_49(wrap, { Size = v_u_7(1, 0, 0, baseH+GAP+PANEL_H) }, 0.22, v_u_14.Quint)
-						v_u_49(chevron, { Rotation = 180, ImageColor3 = v_u_64.white }, 0.18)
-						v_u_49(header, { BackgroundColor3 = v_u_64.elBgHov }, 0.12)
-					else
-						closeCP()
-					end
-				end)
-				togBtn.MouseEnter:Connect(function()
-					if not open and enabled then v_u_49(header, { BackgroundColor3 = v_u_64.elBgHov }, 0.1) end
-				end)
-				togBtn.MouseLeave:Connect(function()
-					if not open and enabled then v_u_49(header, { BackgroundColor3 = v_u_64.elBg }, 0.1) end
-				end)
-
-				if saveId ~= "" and v_u_47(saveId) ~= nil then
-					pcall(function() if callback then callback(currentColor) end end)
-				end
-
-				return {
-					Set = function(_, c)
-						if typeof(c) ~= "Color3" then return end
-						currentColor = c
-						hh, ss, vv = v_u_12(c)
-						updateAll(false)
-						v_u_48(saveId, c)
-					end,
-					Get = function(_) return currentColor end,
-					SetHex = function(_, hexStr)
-						local c = v_u_60(tostring(hexStr or ""))
-						if c then
-							currentColor = c
-							hh, ss, vv = v_u_12(c)
-							updateAll(false)
-							v_u_48(saveId, c)
-						end
-					end,
-					GetHex = function(_) return v_u_59(currentColor) end,
-					SetDescription = function(_, v)
-						if descLbl then
-							local nd = v and v ~= ""
-							descLbl.Text = tostring(v or "")
-							descLbl.Visible = nd
-							local newH = nd and v_u_66 or v_u_65
-							baseH = newH
-							header.Size = v_u_7(1, 0, 0, newH)
-							panel.Position = v_u_7(0, 0, 0, newH + GAP)
-							if not open then wrap.Size = v_u_7(1, 0, 0, newH) end
-						end
-					end,
-					SetEnabled = function(_, val2)
-						enabled = val2 ~= false
-						if not enabled and open then closeCP() end
-						v_u_123(header, not enabled)
-						svDrag = false
-						hueDrag = false
-					end,
-					SetVisible = function(_, vval) if wrap then wrap.Visible = vval ~= false end end,
-					SetTitle = function(_, val2) if titleLbl then titleLbl.Text = tostring(val2) end end,
-					SetCallback = function(_, fn) callback = fn end,
-					Destroy = function(_)
-						pcall(function() cpMoveConn:Disconnect() end)
-						pcall(function() cpEndConn:Disconnect() end)
-						svDrag = false
-						hueDrag = false
 						pcall(function() wrap:Destroy() end)
 					end,
 				}
@@ -2096,48 +1481,65 @@ function EcoHub:CreateWindow(config)
 		return v_u_109
 	end
 
-	-- // Sistema de Minimizar
-	local v_u_126 = v_u_54("ImageButton", {
-		Name = "MinQuad", Parent = v_u_74,
-		BackgroundColor3 = v_u_10(18, 18, 18),
-		Position = v_u_7(1, -60, 1, -60), Size = v_u_7(0, 44, 0, 44),
-		BorderSizePixel = 0,
-		Image = "rbxassetid://92073766339742",
-		ImageTransparency = 0,
-		ImageColor3 = v_u_10(255, 255, 255),
-		Active = true, Draggable = true, Visible = false,
+	local v_u_126 = v_u_54("Frame", {
+		Name = "MinButton", Parent = v_u_74,
+		BackgroundColor3 = v_u_10(25, 25, 30),
+		Position = v_u_7(1, -56, 1, -56), Size = v_u_7(0, 48, 0, 48),
+		BorderSizePixel = 0, ZIndex = 50,
+		Visible = false,
 	})
 	v_u_50(v_u_126, 8)
-	v_u_52(v_u_126, v_u_10(60, 60, 65), 1.2)
+	v_u_52(v_u_126, v_u_10(60, 60, 65), 1.5)
+	v_u_126.Active = true
+	v_u_126.Draggable = true
 
-	local v_u_127 = false
-	local v_u_128 = nil
+	local minImg = v_u_54("ImageLabel", {
+		Parent = v_u_126, BackgroundTransparency = 1,
+		Size = v_u_7(0, 24, 0, 24),
+		Position = v_u_7(0.5, -12, 0.5, -12),
+		Image = v_u_56("move"), ImageColor3 = v_u_10(200, 200, 205), ZIndex = 51,
+	})
 
-	v_u_126.InputBegan:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-			v_u_127 = false
-			v_u_128 = inp.Position
+	local minBtn = v_u_54("TextButton", {
+		Parent = v_u_126, Size = v_u_8(1, 1),
+		BackgroundTransparency = 1, Text = "", ZIndex = 51,
+	})
+
+	local isDragging = false
+	local dragStart = nil
+
+	minBtn.MouseButton1Down:Connect(function(x, y)
+		isDragging = false
+		dragStart = Vector2.new(x, y)
+	end)
+
+	minBtn.MouseMove:Connect(function(x, y)
+		if dragStart then
+			local delta = Vector2.new(x, y) - dragStart
+			if delta.Magnitude > 5 then
+				isDragging = true
+			end
 		end
 	end)
-	v_u_126.InputChanged:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseMovement and v_u_128 then
-			if (inp.Position - v_u_128).Magnitude > 4 then v_u_127 = true end
-		end
-	end)
-	v_u_126.MouseButton1Up:Connect(function()
-		if not v_u_127 then
+
+	minBtn.MouseButton1Up:Connect(function()
+		if not isDragging then
 			v_u_126.Visible = false
 			v_u_75.Visible = true
 			v_u_75.Size = v_u_7(0, v_u_67, 0, 0)
 			v_u_49(v_u_75, { Size = v_u_7(0, v_u_67, 0, v_u_68) }, 0.25, v_u_14.Quint)
 		end
+		isDragging = false
+		dragStart = nil
 	end)
 
 	v_u_81.MouseButton1Click:Connect(function()
 		v_u_49(v_u_75, { Size = v_u_7(0, v_u_67, 0, 0) }, 0.2, v_u_14.Quint)
 		task.delay(0.22, function()
-			v_u_75.Visible = false
-			v_u_126.Visible = true
+			if v_u_75 and v_u_75.Parent then
+				v_u_75.Visible = false
+				v_u_126.Visible = true
+			end
 		end)
 	end)
 
