@@ -19,7 +19,7 @@ Duration = 5;
 
 # MODULE LIB
 ```md
-local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/module.lua"))()
+local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/Console.lua"))()
 
 local msg1 = module.print({
     message = "iniciando script dump",
