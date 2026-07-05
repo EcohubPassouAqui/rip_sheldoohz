@@ -128,7 +128,11 @@ local notifications = {}; do
             Name = "notificationsFrame_UIListLayout",
             Parent = self.ui.notificationsFrame,
             Padding = UDim.new(0, 1),
+<<<<<<< HEAD
             SortOrder = Enum.SortOrder.LayoutOrder
+=======
+            SortOrder = Enum.SortOrder.LayoutOrd
+>>>>>>> d4c53fe0fb60a1bfb0aeda63b46e472194e57125
         });
     end
 
