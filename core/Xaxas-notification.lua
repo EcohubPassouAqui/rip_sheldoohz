@@ -1,4 +1,4 @@
--- variables
+-- // Codywas notification v1.0
 local tweenService, coreGui = game:GetService("TweenService"), game:GetService("CoreGui");
 
 local insert, find, remove = table.insert, table.find, table.remove 
@@ -17,7 +17,6 @@ local notificationPositions = {
     ["TopRight"] = UDim2.new(0.8, 0, 0.001, 0),
 }; 
 
--- functions 
 function protectScreenGui(screenGui)
     if syn and syn.protect_gui then 
         syn.protect_gui(screenGui);
@@ -128,11 +127,7 @@ local notifications = {}; do
             Name = "notificationsFrame_UIListLayout",
             Parent = self.ui.notificationsFrame,
             Padding = UDim.new(0, 1),
-<<<<<<< HEAD
             SortOrder = Enum.SortOrder.LayoutOrder
-=======
-            SortOrder = Enum.SortOrder.LayoutOrd
->>>>>>> d4c53fe0fb60a1bfb0aeda63b46e472194e57125
         });
     end
 
@@ -160,4 +155,4 @@ local notifications = {}; do
     end
 end
 
-return notifications 
+return notifications
