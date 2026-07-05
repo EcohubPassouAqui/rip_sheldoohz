@@ -1,3 +1,4 @@
+-- // Dump v1.0
 local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/Console.lua"))()
 
 local RunService = game:GetService("RunService")

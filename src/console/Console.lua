@@ -1,3 +1,4 @@
+-- // Console Utilities v1
 local global_env = getgenv() or shared or _G or {}
 if global_env["console_utils_v2"] then return global_env.console_utils_v2 end
 
