@@ -1,3 +1,107 @@
+# CODY WAS
+```md
+local Window = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/codywas/Codywas.lua"))()
+local ui = Window.new()
+
+local aimPage = ui:addTab({
+    section = "Combat",
+    tab = "Aim Assist",
+    icon = "crosshair"
+})
+
+local section = ui:addSection(aimPage, "Configurações Principais")
+
+ui:addCheckbox(section, {
+    title = "Aim Assist",
+    description = "Ativa o aim assist",
+    default = true,
+    callback = function(state)
+        print("Checkbox:", state)
+    end,
+    keybind = {
+        default = Enum.KeyCode.E,
+        callback = function(key)
+            print("Keybind:", key.Name)
+        end
+    },
+    colorpick = {
+        default = Color3.fromRGB(0, 220, 120),
+        callback = function(color)
+            print("Color:", color)
+        end
+    }
+})
+
+ui:addSlider(section, {
+    title = "Sensibilidade",
+    description = "Ajuste a sensibilidade",
+    min = 10,
+    max = 300,
+    default = 143,
+    callback = function(value)
+        print("Slider:", value)
+    end
+})
+
+ui:addDropdown(section, {
+    title = "Alvo",
+    list = {"Head", "HumanoidRootPart", "Torso"},
+    default = "Head",
+    callback = function(selected)
+        print("Dropdown:", selected)
+    end
+})
+
+ui:addButton(section, {
+    title = "Executar Ação",
+    callback = function()
+        print("Button clicado!")
+    end
+})
+
+local label = ui:addLabel(section, "Texto dinâmico aqui")
+label:SetText("Novo texto")
+label:SetColor(Color3.fromRGB(255, 100, 100))
+
+local para = ui:addParagraph(section, {
+    title = "Informação",
+    content = "Este é um parágrafo de informação"
+})
+para:SetTitle("Novo Título")
+para:SetContent("Novo conteúdo")
+
+ui:addKeybind(section, {
+    title = "Tecla de Atalho",
+    default = Enum.KeyCode.K,
+    callback = function(key)
+        print("Keybind solitário:", key.Name)
+    end
+})
+
+local checkbox = ui:addCheckbox(section, {title = "Test"})
+checkbox:Set(true)
+checkbox:SetColor(Color3.fromRGB(255, 0, 0))
+
+local slider = ui:addSlider(section, {title = "Test Slider"})
+slider:Set(50)
+
+local dropdown = ui:addDropdown(section, {title = "Test Dropdown", list = {"A", "B"}})
+dropdown:Set("A")
+
+local button = ui:addButton(section, {title = "Test Button"})
+button:SetText("Novo Texto")
+
+local label2 = ui:addLabel(section, "Inicial")
+label2:SetText("Novo")
+label2:SetColor(Color3.fromRGB(0, 255, 0))
+
+local para2 = ui:addParagraph(section, {title = "T", content = "C"})
+para2:SetTitle("Novo Título")
+para2:SetContent("Novo Conteúdo")
+
+local keybind = ui:addKeybind(section, {title = "Test Keybind"})
+keybind:Set(Enum.KeyCode.L)
+```
 # XAXAS-NOTIFICATIONS
 ```md
 local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/core/Xaxas-notification.lua"))();
