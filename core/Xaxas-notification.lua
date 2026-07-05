@@ -53,7 +53,16 @@ local notifications = {}; do
         assert(settings, "missing argument #1 in function notifications.new(settings)");
         assert(typeof(settings) == "table", format("expected table for argument #1 in function notifications.new(settings), got %s", typeof(settings)));
         
-        local notificationSettings = {ui = {notificationsFrame = nil, notificationsFrame_UIListLayout = nil}};
+        local notificationSettings = {
+            ui = {notificationsFrame = nil, notificationsFrame_UIListLayout = nil},
+            NotificationLifetime = 3,
+            NotificationPosition = "Middle",
+            TextFont = Enum.Font.GothamMedium,
+            TextColor = Color3.fromRGB(255, 255, 255),
+            TextSize = 14,
+            TextStrokeTransparency = 0,
+            TextStrokeColor = Color3.fromRGB(0, 0, 0)
+        };
         
         for setting, value in next, settings do 
             notificationSettings[setting] = value 
