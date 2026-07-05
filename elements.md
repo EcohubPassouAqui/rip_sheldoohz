@@ -1,9 +1,23 @@
-# CRYON
+# XAXAS-NOTIFICATIONS
 ```md
-* Atualização
+local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/core/Xaxas-notification.lua"))();
+local notifications = notificationLibrary.new({            
+    NotificationLifetime = 3, 
+    NotificationPosition = "Middle",
+    
+    TextFont = Enum.Font.Code,
+    TextColor = Color3.fromRGB(255, 255, 255),
+    TextSize = 15,
+    
+    TextStrokeTransparency = 0, 
+    TextStrokeColor = Color3.fromRGB(0, 0, 0)
+});
+
+notifications:BuildNotificationUI();
+notifications:Notify("Hello notification test");
 ```
 
-# Notifications
+# NOTIFICATIONS
 ```md
 local Notifications = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/core/Notifications.lua"))();
 local Notify = Notifications.Notify;
@@ -19,7 +33,7 @@ Duration = 5;
 
 # MODULE LIB
 ```md
-local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/module.lua"))()
+local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/src/console/Console.lua"))()
 
 local msg1 = module.print({
     message = "iniciando script dump",
