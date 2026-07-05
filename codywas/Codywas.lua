@@ -27,10 +27,11 @@ end
 
 local Window = {
     Title = "codywas",
-    Subtitle = "by rip_sheldoohz",
+    Subtitle = (function() local n="Unknown Game"; pcall(function() n=game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end); return n.." • by rip_sheldoohz" end)(),
     Width = 550,
     Height = 350
 }
+
 Window.__index = Window
 
 function Window.new()
