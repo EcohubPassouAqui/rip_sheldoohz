@@ -1,4 +1,3 @@
--- // Codywas notification v1.0
 local tweenService = game:GetService("TweenService")
 local coreGui = game:GetService("CoreGui")
 
