@@ -20,7 +20,8 @@ local notifications = notificationLibrary.new({
 });
 
 notifications:BuildNotificationUI();
-notifications:Notify(nomeDoJogo .. " | mode by rip_sheldoohz (: | V1")
+notifications:Notify(nomeDoJogo .. " | mode by rip_sheldoohz (:")
+
 -- Serviços
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -31,61 +32,116 @@ local Camera = workspace.CurrentCamera
 
 -- Configurações
 local DISTANCIA_MAXIMA_ESP = 600
-local AIMBOT_SMOOTHNESS = 0.15 
+local AIMBOT_SMOOTHNESS = 0.12
+local AIMBOT_PREDICTION = 0.5
+local AIMBOT_DISTANCIA_MAX = 300
+local ESP_UPDATE_RATE = 1
 
 -- Variáveis de Controle
 local ativoHighlight = false
 local aimbotAtivo = false
-local modoFFA = false 
+local modoFFA = false
 
 -- Tabelas ESP
 local espBoxes = {}
 local espTraces = {}
 local espLabels = {}
 local espChams = {}
+local playerTargets = {}
 
-function mostrarAviso(tag, texto)
-    notifications:Notify("[" .. string.upper(tag) .. "] " .. string.upper(texto))
+local function pcallSeguro(funcao, ...)
+    local sucesso, resultado = pcall(funcao, ...)
+    if not sucesso then
+        warn("ERRO no script: " .. tostring(resultado))
+    end
+    return sucesso, resultado
 end
 
--- Descobre em qual subpasta de classe (A ou B) o jogador se encontra
+function mostrarAviso(tag, texto)
+    pcallSeguro(function()
+        notifications:Notify("[" .. string.upper(tag) .. "] " .. string.upper(texto))
+    end)
+end
+
+-- Detecção de Time Ultra Melhorada
 local function obterClasseDoJogador(player)
+    if not player or not player.Character then return nil end
+    
     local char = player.Character
-    if char and char.Parent then
-        local nomeClasse = char.Parent.Name
-        if nomeClasse == "A" or nomeClasse == "B" then
-            return nomeClasse
-        end
-        if char.Parent.Parent and (char.Parent.Parent.Name == "A" or char.Parent.Parent.Name == "B") then
-            return char.Parent.Parent.Name
+    if not char.Parent then return nil end
+    
+    local nomeClasse = char.Parent.Name
+    
+    if nomeClasse == "A" or nomeClasse == "B" then
+        return nomeClasse
+    end
+    
+    if char.Parent.Parent then
+        local avoPai = char.Parent.Parent.Name
+        if avoPai == "A" or avoPai == "B" then
+            return avoPai
         end
     end
+    
+    if string.find(nomeClasse, "TeamA") or string.find(nomeClasse, "Team A") or string.find(nomeClasse, "team_a") then
+        return "A"
+    elseif string.find(nomeClasse, "TeamB") or string.find(nomeClasse, "Team B") or string.find(nomeClasse, "team_b") then
+        return "B"
+    end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if humanoid then
+        if humanoid:FindFirstChild("TeamTag") then
+            local tag = humanoid.TeamTag.Value
+            if tag == "A" or tag == "B" then
+                return tag
+            end
+        end
+    end
+    
+    if char:GetAttribute("Team") then
+        return char:GetAttribute("Team")
+    end
+    
     return nil
 end
 
--- Analisa se todos estão no mesmo time ou se uma classe está vazia (Ativação FFA)
+-- Analisa se todos estão no mesmo time ou se uma classe está vazia
 local function atualizarModoDeJogo()
     local qtdA = 0
     local qtdB = 0
+    local jogadoresComClasse = 0
+    local jogadoresSemClasse = 0
 
     for _, p in pairs(Players:GetPlayers()) do
         local classe = obterClasseDoJogador(p)
-        if classe == "A" then
-            qtdA = qtdA + 1
-        elseif classe == "B" then
-            qtdB = qtdB + 1
+        if classe then
+            jogadoresComClasse = jogadoresComClasse + 1
+            if classe == "A" then
+                qtdA = qtdA + 1
+            elseif classe == "B" then
+                qtdB = qtdB + 1
+            end
+        else
+            jogadoresSemClasse = jogadoresSemClasse + 1
         end
     end
 
-    if (qtdA > 0 and qtdB == 0) or (qtdB > 0 and qtdA == 0) then
+    if jogadoresComClasse == 0 then
         if not modoFFA then
             modoFFA = true
-            mostrarAviso("Team", "FFA MODE ACTIVATED")
+            mostrarAviso("Team", "FFA MODE (Sem times detectados)")
+        end
+    elseif (qtdA > 0 and qtdB == 0) or (qtdB > 0 and qtdA == 0) then
+        if not modoFFA then
+            modoFFA = true
+            local timeAtivo = (qtdA > 0) and "A" or "B"
+            mostrarAviso("Team", "FFA MODE (Só Time " .. timeAtivo .. ")")
         end
     else
         if modoFFA then
             modoFFA = false
-            mostrarAviso("Team", "TEAM MODE ACTIVATED")
+            mostrarAviso("Team", "TEAM MODE (Time A:" .. qtdA .. " | Time B:" .. qtdB .. ")")
         end
     end
 end
@@ -98,35 +154,46 @@ local function verificarSeEhAliado(player)
     local minhaClasse = obterClasseDoJogador(LocalPlayer)
     local classeDeles = obterClasseDoJogador(player)
 
-    if minhaClasse and classeDeles then
-        return minhaClasse == classeDeles
+    if not minhaClasse or not classeDeles then
+        return false
     end
 
-    return false
+    return minhaClasse == classeDeles
 end
 
--- Checagem de Obstrução Visual (Raycast / Wall Check)
+-- Sistema de Visibilidade Melhorado
 local function estaVisivel(playerCharacter, targetPart)
     local localCharacter = LocalPlayer.Character
     if not localCharacter or not targetPart then return false end
     
-    local origem = Camera.CFrame.Position
-    local destino = targetPart.Position
-    local direcao = destino - origem
+    local localHrp = localCharacter:FindFirstChild("HumanoidRootPart")
+    if not localHrp then return false end
     
-    local parametros = RaycastParams.new()
-    parametros.FilterType = Enum.RaycastFilterType.Exclude
-    parametros.FilterDescendantsInstances = {localCharacter, playerCharacter, game:GetService("CoreGui")}
-    parametros.IgnoreWater = true
+    local pontosVerificacao = {
+        localHrp.Position + Vector3.new(0, 2, 0),
+        Camera.CFrame.Position
+    }
     
-    local resultado = workspace:Raycast(origem, direcao, parametros)
-    
-    if not resultado then
-        return true
+    for _, origem in ipairs(pontosVerificacao) do
+        local destino = targetPart.Position
+        local direcao = destino - origem
+        
+        local parametros = RaycastParams.new()
+        parametros.FilterType = Enum.RaycastFilterType.Exclude
+        parametros.FilterDescendantsInstances = {localCharacter, playerCharacter, game:GetService("CoreGui")}
+        parametros.IgnoreWater = true
+        
+        local resultado = workspace:Raycast(origem, direcao, parametros)
+        
+        if not resultado then
+            return true
+        end
     end
+    
     return false
 end
 
+-- Sistema ESP Melhorado
 local function limparESP(player)
     if espBoxes[player] then
         if espBoxes[player].Box then espBoxes[player].Box:Remove() end
@@ -145,6 +212,7 @@ local function limparESP(player)
         espChams[player]:Destroy()
         espChams[player] = nil
     end
+    playerTargets[player] = nil
 end
 
 function removerHighlights()
@@ -155,17 +223,17 @@ end
 
 local function criarBox2D()
     local outline = Drawing.new("Square")
-    outline.Thickness = 3
+    outline.Thickness = 2
     outline.Filled = false
     outline.Color = Color3.fromRGB(0, 0, 0)
-    outline.Transparency = 0.8
+    outline.Transparency = 0.7
     outline.Visible = false
 
     local box = Drawing.new("Square")
     box.Thickness = 1
     box.Filled = false
     box.Color = Color3.fromRGB(255, 255, 255)
-    box.Transparency = 1
+    box.Transparency = 0.8
     box.Visible = false
 
     return {Box = box, Outline = outline}
@@ -175,14 +243,14 @@ local function criarTrace()
     local line = Drawing.new("Line")
     line.Thickness = 1
     line.Color = Color3.fromRGB(255, 255, 255)
-    line.Transparency = 0.6
+    line.Transparency = 0.5
     line.Visible = false
     return line
 end
 
 local function criarLabel()
     local text = Drawing.new("Text")
-    text.Size = 14
+    text.Size = 10
     text.Center = true
     text.Outline = true
     text.OutlineColor = Color3.fromRGB(0, 0, 0)
@@ -196,15 +264,38 @@ local function criarChams(char)
     highlight.Name = "EspChams"
     highlight.FillColor = Color3.fromRGB(255, 255, 255)
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
+    highlight.FillTransparency = 0.4
+    highlight.OutlineTransparency = 0.2
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Adornee = char
     highlight.Parent = game:GetService("CoreGui")
     return highlight
 end
 
--- Renderização da API Visual Reestruturada
+-- Cores Dinâmicas
+local function obterCorESP(player, distancia)
+    local classe = obterClasseDoJogador(player)
+    
+    if classe and not modoFFA and verificarSeEhAliado(player) then
+        if distancia < 50 then
+            return Color3.fromRGB(0, 100, 255)
+        elseif distancia < 150 then
+            return Color3.fromRGB(0, 150, 255)
+        else
+            return Color3.fromRGB(0, 200, 255)
+        end
+    end
+    
+    if distancia < 50 then
+        return Color3.fromRGB(255, 0, 0)
+    elseif distancia < 150 then
+        return Color3.fromRGB(255, 165, 0)
+    else
+        return Color3.fromRGB(255, 200, 0)
+    end
+end
+
+-- Renderização ESP Otimizada
 local function atualizarESP()
     local localCharacter = LocalPlayer.Character
     if not localCharacter then return end
@@ -233,14 +324,15 @@ local function atualizarESP()
                     continue
                 end
 
-                -- 1. TRACES
+                local corDinamica = obterCorESP(player, distancia)
+
                 if not espTraces[player] then espTraces[player] = criarTrace() end
                 local traceLine = espTraces[player]
-                traceLine.From = Vector2.new(Camera.ViewportSize.X / 2, 0)
+                traceLine.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                 traceLine.To = Vector2.new(hrpPos.X, hrpPos.Y)
+                traceLine.Color = corDinamica
                 traceLine.Visible = true
 
-                -- 2. BOXES 2D
                 if not espBoxes[player] then espBoxes[player] = criarBox2D() end
                 local boxData = espBoxes[player]
                 
@@ -252,23 +344,26 @@ local function atualizarESP()
 
                 boxData.Outline.Size = Vector2.new(boxWidth, boxHeight)
                 boxData.Outline.Position = Vector2.new(hrpPos.X - boxWidth / 2, hrpPos.Y - boxHeight / 2)
+                boxData.Outline.Color = corDinamica
                 boxData.Outline.Visible = true
 
                 boxData.Box.Size = Vector2.new(boxWidth, boxHeight)
                 boxData.Box.Position = boxData.Outline.Position
+                boxData.Box.Color = corDinamica
                 boxData.Box.Visible = true
 
-                -- 3. LABELS
                 if not espLabels[player] then espLabels[player] = criarLabel() end
                 local label = espLabels[player]
-                label.Position = Vector2.new(hrpPos.X, (hrpPos.Y - boxHeight / 2) - 18)
-                label.Text = player.Name .. " [" .. math.floor(distancia) .. "m]"
+                label.Position = Vector2.new(hrpPos.X, (hrpPos.Y - boxHeight / 2) - 15)
+                label.Text = math.floor(distancia) .. "m"
+                label.Color = corDinamica
                 label.Visible = true
 
-                -- 4. CHAMS
                 if not espChams[player] then 
                     espChams[player] = criarChams(char) 
                 end
+                espChams[player].FillColor = corDinamica
+                espChams[player].OutlineColor = corDinamica
             else
                 limparESP(player)
             end
@@ -278,10 +373,28 @@ local function atualizarESP()
     end
 end
 
--- Seleciona Próximo Alvo Válido
+-- Sistema de Aimbot Ultra Melhorado
+local function preverPosicaoAlvo(player, tempo)
+    if not player or not player.Character then return nil end
+    
+    local char = player.Character
+    local humanoidRP = char:FindFirstChild("HumanoidRootPart")
+    if not humanoidRP then return nil end
+    
+    local ultimaPosicao = playerTargets[player] or humanoidRP.Position
+    local velocidade = humanoidRP.Velocity
+    
+    playerTargets[player] = humanoidRP.Position
+    
+    return humanoidRP.Position + (velocidade * tempo * AIMBOT_PREDICTION)
+end
+
 function encontrarInimigoMaisProximo()
     local inimigoMaisProximo = nil
     local menorDistancia = math.huge
+    local localHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not localHrp then return nil end
 
     for _, player in pairs(Players:GetPlayers()) do
         if player == LocalPlayer then continue end
@@ -291,18 +404,25 @@ function encontrarInimigoMaisProximo()
         
         local head = char:FindFirstChild("Head")
         local humanoid = char:FindFirstChild("Humanoid")
-        if not head or not humanoid or humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead then 
-            continue 
-        end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        
+        if not head or not humanoid or not hrp then continue end
+        if humanoid.Health <= 0 then continue end
+        if humanoid:GetState() == Enum.HumanoidStateType.Dead then continue end
         
         if verificarSeEhAliado(player) then continue end
         if not estaVisivel(char, head) then continue end
 
+        local distanciaReal = (localHrp.Position - hrp.Position).Magnitude
+        if distanciaReal > AIMBOT_DISTANCIA_MAX then continue end
+
         local posTela, visivel = Camera:WorldToViewportPoint(head.Position)
         if visivel then
-            local dist = (Vector2.new(posTela.X, posTela.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-            if dist < menorDistancia then
-                menorDistancia = dist
+            local distTela = (Vector2.new(posTela.X, posTela.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+            local distTotalPrioritizada = (distTela * 0.7) + (distanciaReal * 0.3)
+            
+            if distTotalPrioritizada < menorDistancia then
+                menorDistancia = distTotalPrioritizada
                 inimigoMaisProximo = player
             end
         end
@@ -311,35 +431,51 @@ function encontrarInimigoMaisProximo()
     return inimigoMaisProximo
 end
 
--- Loop de Renderização Principal e Interpolação de Câmera
-local ffaContador = 0
-RunService.RenderStepped:Connect(function()
-    ffaContador = ffaContador + 1
-    if ffaContador % 30 == 0 then
-        atualizarModoDeJogo()
-    end
-
-    atualizarESP()
-    
-    if aimbotAtivo then
+local function executarAimbot()
+    pcallSeguro(function()
         local alvo = encontrarInimigoMaisProximo()
         if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
             local humanoid = alvo.Character:FindFirstChild("Humanoid")
+            local head = alvo.Character:FindFirstChild("Head")
+            
             if humanoid and humanoid.Health > 0 and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
-                local alvoPos = alvo.Character.Head.Position
+                local alvoPos = preverPosicaoAlvo(alvo, 0.016) or head.Position
                 local currentPos = Camera.CFrame.Position
                 
                 local novaDirecao = CFrame.new(currentPos, alvoPos)
-                Camera.CFrame = Camera.CFrame:Lerp(novaDirecao, AIMBOT_SMOOTHNESS)
+                
+                local velocidadeAlvo = head.Velocity.Magnitude
+                local suavizacaoAdaptativa = AIMBOT_SMOOTHNESS * (1 + math.min(velocidadeAlvo / 100, 0.5))
+                local suavizacaoFinal = math.min(suavizacaoAdaptativa, 0.5)
+                
+                Camera.CFrame = Camera.CFrame:Lerp(novaDirecao, suavizacaoFinal)
             end
         end
+    end)
+end
+
+-- Loop Principal Otimizado
+local ffaContador = 0
+RunService.RenderStepped:Connect(function()
+    ffaContador = ffaContador + 1
+    
+    if ffaContador % 30 == 0 then
+        atualizarModoDeJogo()
+        ffaContador = 0
+    end
+
+    if ativoHighlight then
+        atualizarESP()
+    end
+    
+    if aimbotAtivo then
+        executarAimbot()
     end
 end)
 
--- Eventos de Entrada por Teclado (Atalhos)
+-- Controles do Teclado
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed then
-        -- Tecla K: Alterna Estado Visual (ESP)
         if input.KeyCode == Enum.KeyCode.K then
             ativoHighlight = not ativoHighlight
             if ativoHighlight then
@@ -348,13 +484,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 mostrarAviso("Visuals", "DISABLED")
                 removerHighlights()
             end
-        -- Tecla L: Alterna Estado Combate (Aimbot Permanente)
-        elseif input.KeyCode == Enum.KeyCode.L then
+        elseif input.KeyCode == Enum.KeyCode.X then
             aimbotAtivo = not aimbotAtivo
             if aimbotAtivo then
-                mostrarAviso("Combate", "ENABLED")
+                mostrarAviso("Aimbot", "ENABLED")
             else
-                mostrarAviso("Combate", "DISABLED")
+                mostrarAviso("Aimbot", "DISABLED")
             end
         end
     end
@@ -363,3 +498,5 @@ end)
 Players.PlayerRemoving:Connect(function(player)
     limparESP(player)
 end)
+
+mostrarAviso("Sistema", "Pronto! K=ESP | X=AIMBOT")
