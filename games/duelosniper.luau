@@ -20,7 +20,7 @@ local notifications = notificationLibrary.new({
 });
 
 notifications:BuildNotificationUI();
-notifications:Notify(nomeDoJogo .. " | mode by rip_sheldoohz (: | V2.0 - ULTRA MELHORADO")
+notifications:Notify(nomeDoJogo .. " | mode by rip_sheldoohz (: | V2.1 - AIMBOT ULTRA GRUENTO")
 
 -- Serviços
 local Players = game:GetService("Players")
@@ -32,9 +32,9 @@ local Camera = workspace.CurrentCamera
 
 -- Configurações
 local DISTANCIA_MAXIMA_ESP = 600
-local AIMBOT_SMOOTHNESS = 0.12
+local AIMBOT_SMOOTHNESS = 0.35  -- AUMENTADO: Gruda mais na cabeça
 local AIMBOT_PREDICTION = 0.5
-local AIMBOT_DISTANCIA_MAX = 300
+local AIMBOT_DISTANCIA_MAX = 500  -- AUMENTADO: De 300 para 500 metros
 local ESP_UPDATE_RATE = 1
 
 -- Variáveis de Controle
@@ -419,11 +419,12 @@ local function executarAimbot()
                 local alvoPos = preverPosicaoAlvo(alvo, 0.016) or head.Position
                 local currentPos = Camera.CFrame.Position
                 
+                -- MELHORADO: Foca direto na cabeça com suavização aumentada
                 local novaDirecao = CFrame.new(currentPos, alvoPos)
                 
                 local velocidadeAlvo = head.Velocity.Magnitude
-                local suavizacaoAdaptativa = AIMBOT_SMOOTHNESS * (1 + math.min(velocidadeAlvo / 100, 0.5))
-                local suavizacaoFinal = math.min(suavizacaoAdaptativa, 0.5)
+                local suavizacaoAdaptativa = AIMBOT_SMOOTHNESS * (1 + math.min(velocidadeAlvo / 100, 0.3))
+                local suavizacaoFinal = math.min(suavizacaoAdaptativa, 0.6)
                 
                 Camera.CFrame = Camera.CFrame:Lerp(novaDirecao, suavizacaoFinal)
             end
@@ -476,4 +477,4 @@ Players.PlayerRemoving:Connect(function(player)
     limparESP(player)
 end)
 
-mostrarAviso("Sistema", "Pronto! K=ESP | X=AIMBOT")
+mostrarAviso("Sistema", "Pronto! K=ESP | X=AIMBOT | AIMBOT ULTRA GRUENTO")
