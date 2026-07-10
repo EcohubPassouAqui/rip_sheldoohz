@@ -20,7 +20,7 @@ local notifications = notificationLibrary.new({
 });
 
 notifications:BuildNotificationUI();
-notifications:Notify(nomeDoJogo .. " | mode by rip_sheldoohz (:")
+notifications:Notify(nomeDoJogo .. " | mode by rip_sheldoohz (: | V2.0 - ULTRA MELHORADO")
 
 -- Serviços
 local Players = game:GetService("Players")
@@ -223,17 +223,17 @@ end
 
 local function criarBox2D()
     local outline = Drawing.new("Square")
-    outline.Thickness = 2
+    outline.Thickness = 1
     outline.Filled = false
-    outline.Color = Color3.fromRGB(0, 0, 0)
-    outline.Transparency = 0.7
+    outline.Color = Color3.fromRGB(255, 255, 255)
+    outline.Transparency = 0.3
     outline.Visible = false
 
     local box = Drawing.new("Square")
     box.Thickness = 1
     box.Filled = false
     box.Color = Color3.fromRGB(255, 255, 255)
-    box.Transparency = 0.8
+    box.Transparency = 0.5
     box.Visible = false
 
     return {Box = box, Outline = outline}
@@ -243,14 +243,14 @@ local function criarTrace()
     local line = Drawing.new("Line")
     line.Thickness = 1
     line.Color = Color3.fromRGB(255, 255, 255)
-    line.Transparency = 0.5
+    line.Transparency = 0.4
     line.Visible = false
     return line
 end
 
 local function criarLabel()
     local text = Drawing.new("Text")
-    text.Size = 10
+    text.Size = 8
     text.Center = true
     text.Outline = true
     text.OutlineColor = Color3.fromRGB(0, 0, 0)
@@ -264,38 +264,20 @@ local function criarChams(char)
     highlight.Name = "EspChams"
     highlight.FillColor = Color3.fromRGB(255, 255, 255)
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.4
-    highlight.OutlineTransparency = 0.2
+    highlight.FillTransparency = 0.6
+    highlight.OutlineTransparency = 0.5
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Adornee = char
     highlight.Parent = game:GetService("CoreGui")
     return highlight
 end
 
--- Cores Dinâmicas
+-- Cores Dinâmicas (Tudo Branco)
 local function obterCorESP(player, distancia)
-    local classe = obterClasseDoJogador(player)
-    
-    if classe and not modoFFA and verificarSeEhAliado(player) then
-        if distancia < 50 then
-            return Color3.fromRGB(0, 100, 255)
-        elseif distancia < 150 then
-            return Color3.fromRGB(0, 150, 255)
-        else
-            return Color3.fromRGB(0, 200, 255)
-        end
-    end
-    
-    if distancia < 50 then
-        return Color3.fromRGB(255, 0, 0)
-    elseif distancia < 150 then
-        return Color3.fromRGB(255, 165, 0)
-    else
-        return Color3.fromRGB(255, 200, 0)
-    end
+    return Color3.fromRGB(255, 255, 255)
 end
 
--- Renderização ESP Otimizada
+-- Renderização ESP Ultra Otimizada
 local function atualizarESP()
     local localCharacter = LocalPlayer.Character
     if not localCharacter then return end
@@ -306,69 +288,64 @@ local function atualizarESP()
         if player == LocalPlayer then continue end
         
         local char = player.Character
-        
-        if ativoHighlight and char and char:IsDescendantOf(workspace) and not verificarSeEhAliado(player) then
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local humanoid = char:FindFirstChild("Humanoid")
-            
-            if hrp and humanoid and humanoid.Health > 0 then
-                local distancia = (localHrp.Position - hrp.Position).Magnitude
-                if distancia > DISTANCIA_MAXIMA_ESP then
-                    limparESP(player)
-                    continue
-                end
-
-                local hrpPos, emTela = Camera:WorldToViewportPoint(hrp.Position)
-                if not emTela then
-                    limparESP(player)
-                    continue
-                end
-
-                local corDinamica = obterCorESP(player, distancia)
-
-                if not espTraces[player] then espTraces[player] = criarTrace() end
-                local traceLine = espTraces[player]
-                traceLine.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                traceLine.To = Vector2.new(hrpPos.X, hrpPos.Y)
-                traceLine.Color = corDinamica
-                traceLine.Visible = true
-
-                if not espBoxes[player] then espBoxes[player] = criarBox2D() end
-                local boxData = espBoxes[player]
-                
-                local topPos = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
-                local bottomPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.5, 0))
-                
-                local boxHeight = math.abs(topPos.Y - bottomPos.Y)
-                local boxWidth = boxHeight / 1.8
-
-                boxData.Outline.Size = Vector2.new(boxWidth, boxHeight)
-                boxData.Outline.Position = Vector2.new(hrpPos.X - boxWidth / 2, hrpPos.Y - boxHeight / 2)
-                boxData.Outline.Color = corDinamica
-                boxData.Outline.Visible = true
-
-                boxData.Box.Size = Vector2.new(boxWidth, boxHeight)
-                boxData.Box.Position = boxData.Outline.Position
-                boxData.Box.Color = corDinamica
-                boxData.Box.Visible = true
-
-                if not espLabels[player] then espLabels[player] = criarLabel() end
-                local label = espLabels[player]
-                label.Position = Vector2.new(hrpPos.X, (hrpPos.Y - boxHeight / 2) - 15)
-                label.Text = math.floor(distancia) .. "m"
-                label.Color = corDinamica
-                label.Visible = true
-
-                if not espChams[player] then 
-                    espChams[player] = criarChams(char) 
-                end
-                espChams[player].FillColor = corDinamica
-                espChams[player].OutlineColor = corDinamica
-            else
-                limparESP(player)
-            end
-        else
+        if not (ativoHighlight and char and char:IsDescendantOf(workspace) and not verificarSeEhAliado(player)) then
             limparESP(player)
+            continue
+        end
+        
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char:FindFirstChild("Humanoid")
+        
+        if not (hrp and humanoid and humanoid.Health > 0) then
+            limparESP(player)
+            continue
+        end
+
+        local distancia = (localHrp.Position - hrp.Position).Magnitude
+        if distancia > DISTANCIA_MAXIMA_ESP then
+            limparESP(player)
+            continue
+        end
+
+        local hrpPos, emTela = Camera:WorldToViewportPoint(hrp.Position)
+        if not emTela then
+            limparESP(player)
+            continue
+        end
+
+        local corBranca = Color3.fromRGB(255, 255, 255)
+
+        if not espTraces[player] then espTraces[player] = criarTrace() end
+        local traceLine = espTraces[player]
+        traceLine.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+        traceLine.To = Vector2.new(hrpPos.X, hrpPos.Y)
+        traceLine.Visible = true
+
+        if not espBoxes[player] then espBoxes[player] = criarBox2D() end
+        local boxData = espBoxes[player]
+        
+        local topPos = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
+        local bottomPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.5, 0))
+        
+        local boxHeight = math.abs(topPos.Y - bottomPos.Y)
+        local boxWidth = boxHeight / 1.8
+
+        boxData.Outline.Size = Vector2.new(boxWidth, boxHeight)
+        boxData.Outline.Position = Vector2.new(hrpPos.X - boxWidth / 2, hrpPos.Y - boxHeight / 2)
+        boxData.Outline.Visible = true
+
+        boxData.Box.Size = Vector2.new(boxWidth, boxHeight)
+        boxData.Box.Position = boxData.Outline.Position
+        boxData.Box.Visible = true
+
+        if not espLabels[player] then espLabels[player] = criarLabel() end
+        local label = espLabels[player]
+        label.Position = Vector2.new(hrpPos.X, (hrpPos.Y - boxHeight / 2) - 12)
+        label.Text = math.floor(distancia) .. "m"
+        label.Visible = true
+
+        if not espChams[player] then 
+            espChams[player] = criarChams(char) 
         end
     end
 end
