@@ -25,7 +25,6 @@ local notificationPositions = {
     ["TopRight"] = UDim2.new(0.8, 0, 0.001, 0),
 }
 
--- // protectScreenGui
 local function protectScreenGui(screenGui)
     if syn and syn.protect_gui then 
         syn.protect_gui(screenGui)
@@ -37,7 +36,6 @@ local function protectScreenGui(screenGui)
     end
 end
 
--- // createObject
 local function createObject(className, properties)
     local instance = newInstance(className)
     for index, value in next, properties do 
@@ -46,13 +44,11 @@ local function createObject(className, properties)
     return instance
 end
 
--- // getTextSize
-local function getTextSize(text, textSize, font)
-    local bounds = textService:GetTextSize(text, textSize, font, Vector2.new(600, 100))
+local function getTextSize(text, textSize, font, maxWidth)
+    local bounds = textService:GetTextSize(text, textSize, font, Vector2.new(maxWidth or 1000, 100))
     return bounds.X
 end
 
--- // fadeObject
 local function fadeObject(object, onTweenCompleted)
     local tweenInformation = tweenService:Create(object, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
         TextTransparency = 1,
@@ -63,7 +59,16 @@ local function fadeObject(object, onTweenCompleted)
     tweenInformation:Play()
 end
 
--- // safeCall
+local function resolveIcon(iconType)
+    if not iconType or not ICONS then
+        return nil
+    end
+
+    local strippedName = iconType:gsub("^lucide%-", "")
+
+    return ICONS[strippedName] or ICONS[iconType] or ICONS["lucide-" .. strippedName]
+end
+
 local function safeCall(fn, ...)
     local success, result = pcall(fn, ...)
     if not success then
@@ -74,7 +79,6 @@ end
 
 local notifications = {}
 
--- // new
 function notifications.new(settings)
     local success, error = safeCall(function()
         assert(settings, "missing argument #1 in function notifications.new(settings)")
@@ -112,7 +116,6 @@ function notifications.new(settings)
     return notificationSettings
 end
 
--- // SetNotificationLifetime
 function notifications:SetNotificationLifetime(number)
     local success, error = safeCall(function()
         assert(number, "missing argument #1 in function SetNotificationLifetime(number)")
@@ -128,7 +131,6 @@ function notifications:SetNotificationLifetime(number)
     return true
 end
 
--- // SetTextColor
 function notifications:SetTextColor(color3)
     local success, error = safeCall(function()
         assert(color3, "missing argument #1 in function SetTextColor(Color3)")
@@ -144,7 +146,6 @@ function notifications:SetTextColor(color3)
     return true
 end
 
--- // SetTextSize
 function notifications:SetTextSize(number)
     local success, error = safeCall(function()
         assert(number, "missing argument #1 in function SetTextSize(number)")
@@ -160,7 +161,6 @@ function notifications:SetTextSize(number)
     return true
 end
 
--- // SetTextStrokeTransparency
 function notifications:SetTextStrokeTransparency(number)
     local success, error = safeCall(function()
         assert(number, "missing argument #1 in function SetTextStrokeTransparency(number)")
@@ -176,7 +176,6 @@ function notifications:SetTextStrokeTransparency(number)
     return true
 end
 
--- // SetTextStrokeColor
 function notifications:SetTextStrokeColor(color3)
     local success, error = safeCall(function()
         assert(color3, "missing argument #1 in function SetTextStrokeColor(Color3)")
@@ -192,7 +191,6 @@ function notifications:SetTextStrokeColor(color3)
     return true
 end
 
--- // SetTextFont
 function notifications:SetTextFont(font)
     local success, error = safeCall(function()
         assert(font, "missing argument #1 in function SetTextFont(Font)")
@@ -208,7 +206,6 @@ function notifications:SetTextFont(font)
     return true
 end
 
--- // SetIconSize
 function notifications:SetIconSize(number)
     local success, error = safeCall(function()
         assert(number, "missing argument #1 in function SetIconSize(number)")
@@ -224,7 +221,6 @@ function notifications:SetIconSize(number)
     return true
 end
 
--- // SetWidthLimits
 function notifications:SetWidthLimits(minWidth, maxWidth)
     local success, error = safeCall(function()
         assert(minWidth, "missing argument #1 in function SetWidthLimits(minWidth, maxWidth)")
@@ -243,7 +239,6 @@ function notifications:SetWidthLimits(minWidth, maxWidth)
     return true
 end
 
--- // SetErrorCallback
 function notifications:SetErrorCallback(callback)
     local success, error = safeCall(function()
         assert(callback, "missing argument #1 in function SetErrorCallback(callback)")
@@ -259,7 +254,6 @@ function notifications:SetErrorCallback(callback)
     return true
 end
 
--- // BuildNotificationUI
 function notifications:BuildNotificationUI()
     local success, error = safeCall(function()
         if self.screenGui then 
@@ -304,7 +298,6 @@ function notifications:BuildNotificationUI()
     return true
 end
 
--- // Show
 function notifications:Show(options)
     local success, error = safeCall(function()
         assert(options, "missing argument #1 in function Show(options)")
@@ -331,15 +324,14 @@ function notifications:Show(options)
             self:BuildNotificationUI()
         end
 
-        local iconText = (iconType and ICONS and ICONS[iconType]) or ""
-        local hasIcon = iconType and ICONS and ICONS[iconType]
-        
+        local resolvedIcon = resolveIcon(iconType)
+
         local finalText = message
-        if hasIcon and iconText ~= "" then
-            finalText = iconText .. " " .. message
+        if resolvedIcon and resolvedIcon ~= "" then
+            finalText = resolvedIcon .. "  " .. message
         end
         
-        local textWidth = getTextSize(finalText, self.TextSize, self.TextFont)
+        local textWidth = getTextSize(finalText, self.TextSize, self.TextFont, self.MaxWidth)
         local width = math.max(self.MinWidth, math.min(textWidth + 24, self.MaxWidth))
 
         local notificationLabel = createObject("TextLabel", {
@@ -387,7 +379,6 @@ function notifications:Show(options)
     return true
 end
 
--- // Update
 function notifications:Update(index, newMessage)
     local success, error = safeCall(function()
         assert(index, "missing argument #1 in function Update(index, newMessage)")
@@ -412,7 +403,6 @@ function notifications:Update(index, newMessage)
     return true
 end
 
--- // Notify
 function notifications:Notify(text, iconType)
     return self:Show({
         message = text,
@@ -420,7 +410,6 @@ function notifications:Notify(text, iconType)
     })
 end
 
--- // Success
 function notifications:Success(text)
     return self:Show({
         message = text,
@@ -428,7 +417,6 @@ function notifications:Success(text)
     })
 end
 
--- // Error
 function notifications:Error(text, errorDetails)
     if errorDetails then
         warn("Notification Error Details: " .. tostring(errorDetails))
@@ -439,7 +427,6 @@ function notifications:Error(text, errorDetails)
     })
 end
 
--- // Warning
 function notifications:Warning(text)
     return self:Show({
         message = text,
@@ -447,7 +434,6 @@ function notifications:Warning(text)
     })
 end
 
--- // Info
 function notifications:Info(text)
     return self:Show({
         message = text,
@@ -455,7 +441,6 @@ function notifications:Info(text)
     })
 end
 
--- // Loading
 function notifications:Loading(text)
     return self:Show({
         message = text,
@@ -463,7 +448,6 @@ function notifications:Loading(text)
     })
 end
 
--- // Clear
 function notifications:Clear()
     local success, error = safeCall(function()
         for _, notifObject in ipairs(self.activeNotifications) do
@@ -485,7 +469,6 @@ function notifications:Clear()
     return true
 end
 
--- // Destroy
 function notifications:Destroy()
     local success, error = safeCall(function()
         if self.screenGui then
