@@ -25,24 +25,6 @@ local notificationPositions = {
     ["TopRight"] = UDim2.new(0.8, 0, 0.001, 0),
 }
 
-local notificationColors = {
-    success = Color3.fromRGB(76, 175, 80),
-    error = Color3.fromRGB(244, 67, 54),
-    warning = Color3.fromRGB(255, 193, 7),
-    info = Color3.fromRGB(33, 150, 243),
-    loading = Color3.fromRGB(156, 39, 176),
-    default = Color3.fromRGB(255, 255, 255)
-}
-
-local notificationTextColors = {
-    success = Color3.fromRGB(255, 255, 255),
-    error = Color3.fromRGB(255, 255, 255),
-    warning = Color3.fromRGB(0, 0, 0),
-    info = Color3.fromRGB(255, 255, 255),
-    loading = Color3.fromRGB(255, 255, 255),
-    default = Color3.fromRGB(0, 0, 0)
-}
-
 -- // protectScreenGui
 local function protectScreenGui(screenGui)
     if syn and syn.protect_gui then 
@@ -114,7 +96,7 @@ function notifications.new(settings)
         TextStrokeTransparency = 0,
         TextStrokeColor = Color3.fromRGB(0, 0, 0),
         IconSize = 20,
-        MinWidth = 236,
+        MinWidth = 100,
         MaxWidth = 600,
         IconPadding = 8,
         activeNotifications = {},
@@ -329,7 +311,7 @@ function notifications:Show(options)
         assert(typeof(options) == "table", format("expected table for argument #1, got %s", typeof(options)))
         
         local message = options.message
-        local notificationType = options.type or "default"
+        local iconType = options.type or nil
         local delay = options.delay or 0
         
         assert(message, "missing 'message' in options table")
@@ -339,7 +321,7 @@ function notifications:Show(options)
             task.delay(delay, function()
                 self:Show({
                     message = message,
-                    type = notificationType
+                    type = iconType
                 })
             end)
             return true
@@ -349,90 +331,45 @@ function notifications:Show(options)
             self:BuildNotificationUI()
         end
 
-        local textWidth = getTextSize(message, self.TextSize, self.TextFont)
-        local width = math.max(self.MinWidth, math.min(textWidth + 48, self.MaxWidth))
-        local iconText = (notificationType and ICONS and ICONS[notificationType]) or ""
-        local hasIcon = notificationType and ICONS and ICONS[notificationType]
+        local iconText = (iconType and ICONS and ICONS[iconType]) or ""
+        local hasIcon = iconType and ICONS and ICONS[iconType]
         
+        local textToPrint = message
         if hasIcon then
-            width = math.max(self.MinWidth, math.min(textWidth + self.IconSize + self.IconPadding + 32, self.MaxWidth))
+            textToPrint = iconText .. " " .. message
         end
-
-        local bgColor = notificationColors[notificationType] or notificationColors.default
-        local textColor = notificationTextColors[notificationType] or notificationTextColors.default
+        
+        local textWidth = getTextSize(textToPrint, self.TextSize, self.TextFont)
+        local width = math.max(self.MinWidth, math.min(textWidth + 24, self.MaxWidth))
 
         local notificationContainer = createObject("Frame", {
             Name = "notificationContainer",
             Parent = self.ui.notificationsFrame,
-            BackgroundColor3 = bgColor,
-            BackgroundTransparency = 0,
-            Size = UDim2.new(0, width, 0, self.IconSize + 8),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, width, 0, self.TextSize + 4),
             LayoutOrder = #self.activeNotifications + 1
         })
-
-        local uiCorner = createObject("UICorner", {
-            Name = "UICorner",
-            Parent = notificationContainer,
-            CornerRadius = UDim.new(0, 6)
-        })
-
-        local containerLayout = createObject("UIListLayout", {
-            Name = "containerLayout",
-            Parent = notificationContainer,
-            Padding = UDim.new(0, self.IconPadding),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            FillDirection = Enum.FillDirection.Horizontal,
-            VerticalAlignment = Enum.VerticalAlignment.Center
-        })
-
-        local uiPadding = createObject("UIPadding", {
-            Name = "UIPadding",
-            Parent = notificationContainer,
-            PaddingLeft = UDim.new(0, 8),
-            PaddingRight = UDim.new(0, 8),
-            PaddingTop = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4)
-        })
-
-        local iconLabel = nil
-        if hasIcon then
-            iconLabel = createObject("TextLabel", {
-                Name = "icon",
-                Parent = notificationContainer,
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                BackgroundTransparency = 1,
-                Size = UDim2.new(0, self.IconSize, 0, self.IconSize),
-                Text = iconText,
-                Font = self.TextFont,
-                TextColor3 = textColor,
-                TextSize = self.IconSize,
-                TextStrokeColor3 = self.TextStrokeColor,
-                TextStrokeTransparency = self.TextStrokeTransparency,
-                LayoutOrder = 1
-            })
-        end
 
         local notification = createObject("TextLabel", {
             Name = "notification",
             Parent = notificationContainer,
             BackgroundColor3 = Color3.fromRGB(255, 255, 255),
             BackgroundTransparency = 1,
-            Size = UDim2.new(0, width - (hasIcon and self.IconSize + self.IconPadding or 0) - 16, 0, self.IconSize),
-            Text = message,
+            Size = UDim2.new(1, 0, 1, 0),
+            Text = textToPrint,
             Font = self.TextFont,
-            TextColor3 = textColor,
+            TextColor3 = self.TextColor,
             TextSize = self.TextSize,
             TextStrokeColor3 = self.TextStrokeColor,
             TextStrokeTransparency = self.TextStrokeTransparency,
             TextWrapped = false,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            LayoutOrder = 2
+            TextXAlignment = Enum.TextXAlignment.Left
         })
 
         local notifObject = {
             container = notificationContainer,
             textLabel = notification,
-            iconLabel = iconLabel,
             lifetime = self.NotificationLifetime
         }
 
@@ -440,10 +377,6 @@ function notifications:Show(options)
 
         task.delay(self.NotificationLifetime, function()
             if notificationContainer.Parent then
-                if iconLabel then
-                    fadeObject(iconLabel, function() end)
-                end
-                
                 fadeObject(notification, function()
                     notificationContainer:Destroy()
                     remove(self.activeNotifications, find(self.activeNotifications, notifObject))
@@ -492,7 +425,7 @@ end
 function notifications:Notify(text, iconType)
     return self:Show({
         message = text,
-        type = iconType or "default"
+        type = iconType
     })
 end
 
