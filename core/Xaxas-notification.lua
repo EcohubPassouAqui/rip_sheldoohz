@@ -334,51 +334,42 @@ function notifications:Show(options)
         local iconText = (iconType and ICONS and ICONS[iconType]) or ""
         local hasIcon = iconType and ICONS and ICONS[iconType]
         
-        local textToPrint = message
-        if hasIcon then
-            textToPrint = iconText .. " " .. message
+        local finalText = message
+        if hasIcon and iconText ~= "" then
+            finalText = iconText .. " " .. message
         end
         
-        local textWidth = getTextSize(textToPrint, self.TextSize, self.TextFont)
+        local textWidth = getTextSize(finalText, self.TextSize, self.TextFont)
         local width = math.max(self.MinWidth, math.min(textWidth + 24, self.MaxWidth))
 
-        local notificationContainer = createObject("Frame", {
-            Name = "notificationContainer",
+        local notificationLabel = createObject("TextLabel", {
+            Name = "notificationLabel",
             Parent = self.ui.notificationsFrame,
             BackgroundColor3 = Color3.fromRGB(255, 255, 255),
             BackgroundTransparency = 1,
             Size = UDim2.new(0, width, 0, self.TextSize + 4),
-            LayoutOrder = #self.activeNotifications + 1
-        })
-
-        local notification = createObject("TextLabel", {
-            Name = "notification",
-            Parent = notificationContainer,
-            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0),
-            Text = textToPrint,
+            Text = finalText,
             Font = self.TextFont,
             TextColor3 = self.TextColor,
             TextSize = self.TextSize,
             TextStrokeColor3 = self.TextStrokeColor,
             TextStrokeTransparency = self.TextStrokeTransparency,
             TextWrapped = false,
-            TextXAlignment = Enum.TextXAlignment.Left
+            TextXAlignment = Enum.TextXAlignment.Left,
+            LayoutOrder = #self.activeNotifications + 1
         })
 
         local notifObject = {
-            container = notificationContainer,
-            textLabel = notification,
+            label = notificationLabel,
             lifetime = self.NotificationLifetime
         }
 
         insert(self.activeNotifications, notifObject)
 
         task.delay(self.NotificationLifetime, function()
-            if notificationContainer.Parent then
-                fadeObject(notification, function()
-                    notificationContainer:Destroy()
+            if notificationLabel.Parent then
+                fadeObject(notificationLabel, function()
+                    notificationLabel:Destroy()
                     remove(self.activeNotifications, find(self.activeNotifications, notifObject))
                 end)
             end
@@ -406,7 +397,7 @@ function notifications:Update(index, newMessage)
         
         if self.activeNotifications[index] then
             local notifObject = self.activeNotifications[index]
-            notifObject.textLabel.Text = newMessage
+            notifObject.label.Text = newMessage
         end
     end)
     
@@ -476,8 +467,8 @@ end
 function notifications:Clear()
     local success, error = safeCall(function()
         for _, notifObject in ipairs(self.activeNotifications) do
-            if notifObject.container.Parent then
-                notifObject.container:Destroy()
+            if notifObject.label.Parent then
+                notifObject.label:Destroy()
             end
         end
         self.activeNotifications = {}
