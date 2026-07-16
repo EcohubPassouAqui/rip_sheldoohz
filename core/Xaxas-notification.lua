@@ -15,7 +15,6 @@ if iconsOk and type(iconsResult) == "table" then
     ICONS = iconsResult
 end
 
--- // notificationPositions
 local notificationPositions = {
     ["Middle"] = UDim2.new(0.445, 0, 0.7, 0),
     ["MiddleRight"] = UDim2.new(0.85, 0, 0.7, 0),
@@ -24,6 +23,24 @@ local notificationPositions = {
     ["Top"] = UDim2.new(0.445, 0, 0.007, 0),
     ["TopLeft"] = UDim2.new(0.06, 0, 0.001, 0),
     ["TopRight"] = UDim2.new(0.8, 0, 0.001, 0),
+}
+
+local notificationColors = {
+    success = Color3.fromRGB(76, 175, 80),
+    error = Color3.fromRGB(244, 67, 54),
+    warning = Color3.fromRGB(255, 193, 7),
+    info = Color3.fromRGB(33, 150, 243),
+    loading = Color3.fromRGB(156, 39, 176),
+    default = Color3.fromRGB(255, 255, 255)
+}
+
+local notificationTextColors = {
+    success = Color3.fromRGB(255, 255, 255),
+    error = Color3.fromRGB(255, 255, 255),
+    warning = Color3.fromRGB(0, 0, 0),
+    info = Color3.fromRGB(255, 255, 255),
+    loading = Color3.fromRGB(255, 255, 255),
+    default = Color3.fromRGB(0, 0, 0)
 }
 
 -- // protectScreenGui
@@ -312,13 +329,20 @@ function notifications:Show(options)
         assert(typeof(options) == "table", format("expected table for argument #1, got %s", typeof(options)))
         
         local message = options.message
-        local icon = options.icon
+        local notificationType = options.type or "default"
+        local delay = options.delay or 0
         
         assert(message, "missing 'message' in options table")
         assert(typeof(message) == "string", format("expected string for 'message', got %s", typeof(message)))
         
-        if icon then
-            assert(typeof(icon) == "string", format("expected string for 'icon', got %s", typeof(icon)))
+        if delay and delay > 0 then
+            task.delay(delay, function()
+                self:Show({
+                    message = message,
+                    type = notificationType
+                })
+            end)
+            return true
         end
         
         if not self.ui.notificationsFrame then
@@ -327,19 +351,29 @@ function notifications:Show(options)
 
         local textWidth = getTextSize(message, self.TextSize, self.TextFont)
         local width = math.max(self.MinWidth, math.min(textWidth + 48, self.MaxWidth))
-        local hasIcon = icon and ICONS and ICONS[icon]
+        local iconText = (notificationType and ICONS and ICONS[notificationType]) or ""
+        local hasIcon = notificationType and ICONS and ICONS[notificationType]
         
         if hasIcon then
             width = math.max(self.MinWidth, math.min(textWidth + self.IconSize + self.IconPadding + 32, self.MaxWidth))
         end
 
+        local bgColor = notificationColors[notificationType] or notificationColors.default
+        local textColor = notificationTextColors[notificationType] or notificationTextColors.default
+
         local notificationContainer = createObject("Frame", {
             Name = "notificationContainer",
             Parent = self.ui.notificationsFrame,
-            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-            BackgroundTransparency = 1,
-            Size = UDim2.new(0, width, 0, self.IconSize + 4),
+            BackgroundColor3 = bgColor,
+            BackgroundTransparency = 0,
+            Size = UDim2.new(0, width, 0, self.IconSize + 8),
             LayoutOrder = #self.activeNotifications + 1
+        })
+
+        local uiCorner = createObject("UICorner", {
+            Name = "UICorner",
+            Parent = notificationContainer,
+            CornerRadius = UDim.new(0, 6)
         })
 
         local containerLayout = createObject("UIListLayout", {
@@ -351,16 +385,26 @@ function notifications:Show(options)
             VerticalAlignment = Enum.VerticalAlignment.Center
         })
 
+        local uiPadding = createObject("UIPadding", {
+            Name = "UIPadding",
+            Parent = notificationContainer,
+            PaddingLeft = UDim.new(0, 8),
+            PaddingRight = UDim.new(0, 8),
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4)
+        })
+
+        local iconLabel = nil
         if hasIcon then
-            local iconLabel = createObject("TextLabel", {
+            iconLabel = createObject("TextLabel", {
                 Name = "icon",
                 Parent = notificationContainer,
                 BackgroundColor3 = Color3.fromRGB(255, 255, 255),
                 BackgroundTransparency = 1,
                 Size = UDim2.new(0, self.IconSize, 0, self.IconSize),
-                Text = ICONS[icon],
+                Text = iconText,
                 Font = self.TextFont,
-                TextColor3 = self.TextColor,
+                TextColor3 = textColor,
                 TextSize = self.IconSize,
                 TextStrokeColor3 = self.TextStrokeColor,
                 TextStrokeTransparency = self.TextStrokeTransparency,
@@ -373,10 +417,10 @@ function notifications:Show(options)
             Parent = notificationContainer,
             BackgroundColor3 = Color3.fromRGB(255, 255, 255),
             BackgroundTransparency = 1,
-            Size = UDim2.new(0, width - (hasIcon and self.IconSize + self.IconPadding or 0) - 8, 0, self.IconSize),
+            Size = UDim2.new(0, width - (hasIcon and self.IconSize + self.IconPadding or 0) - 16, 0, self.IconSize),
             Text = message,
             Font = self.TextFont,
-            TextColor3 = self.TextColor,
+            TextColor3 = textColor,
             TextSize = self.TextSize,
             TextStrokeColor3 = self.TextStrokeColor,
             TextStrokeTransparency = self.TextStrokeTransparency,
@@ -385,20 +429,24 @@ function notifications:Show(options)
             LayoutOrder = 2
         })
 
-        insert(self.activeNotifications, notificationContainer)
+        local notifObject = {
+            container = notificationContainer,
+            textLabel = notification,
+            iconLabel = iconLabel,
+            lifetime = self.NotificationLifetime
+        }
+
+        insert(self.activeNotifications, notifObject)
 
         task.delay(self.NotificationLifetime, function()
             if notificationContainer.Parent then
-                local icon = notificationContainer:FindFirstChild("icon")
-                local textLabel = notificationContainer:FindFirstChild("notification")
-                
-                if icon then
-                    fadeObject(icon, function() end)
+                if iconLabel then
+                    fadeObject(iconLabel, function() end)
                 end
                 
-                fadeObject(textLabel, function()
+                fadeObject(notification, function()
                     notificationContainer:Destroy()
-                    remove(self.activeNotifications, find(self.activeNotifications, notificationContainer))
+                    remove(self.activeNotifications, find(self.activeNotifications, notifObject))
                 end)
             end
         end)
@@ -415,11 +463,36 @@ function notifications:Show(options)
     return true
 end
 
+-- // Update
+function notifications:Update(index, newMessage)
+    local success, error = safeCall(function()
+        assert(index, "missing argument #1 in function Update(index, newMessage)")
+        assert(typeof(index) == "number", format("expected number for 'index', got %s", typeof(index)))
+        assert(newMessage, "missing argument #2 in function Update(index, newMessage)")
+        assert(typeof(newMessage) == "string", format("expected string for 'newMessage', got %s", typeof(newMessage)))
+        
+        if self.activeNotifications[index] then
+            local notifObject = self.activeNotifications[index]
+            notifObject.textLabel.Text = newMessage
+        end
+    end)
+    
+    if not success then
+        warn("Notification Error (Update): " .. error)
+        if self.errorCallback then
+            self.errorCallback("Update", error)
+        end
+        return false
+    end
+    
+    return true
+end
+
 -- // Notify
-function notifications:Notify(text, iconName)
+function notifications:Notify(text, iconType)
     return self:Show({
         message = text,
-        icon = iconName
+        type = iconType or "default"
     })
 end
 
@@ -427,7 +500,7 @@ end
 function notifications:Success(text)
     return self:Show({
         message = text,
-        icon = "success"
+        type = "success"
     })
 end
 
@@ -438,7 +511,7 @@ function notifications:Error(text, errorDetails)
     end
     return self:Show({
         message = text,
-        icon = "error"
+        type = "error"
     })
 end
 
@@ -446,7 +519,7 @@ end
 function notifications:Warning(text)
     return self:Show({
         message = text,
-        icon = "warning"
+        type = "warning"
     })
 end
 
@@ -454,7 +527,7 @@ end
 function notifications:Info(text)
     return self:Show({
         message = text,
-        icon = "info"
+        type = "info"
     })
 end
 
@@ -462,16 +535,16 @@ end
 function notifications:Loading(text)
     return self:Show({
         message = text,
-        icon = "loading"
+        type = "loading"
     })
 end
 
 -- // Clear
 function notifications:Clear()
     local success, error = safeCall(function()
-        for _, notification in ipairs(self.activeNotifications) do
-            if notification.Parent then
-                notification:Destroy()
+        for _, notifObject in ipairs(self.activeNotifications) do
+            if notifObject.container.Parent then
+                notifObject.container:Destroy()
             end
         end
         self.activeNotifications = {}
