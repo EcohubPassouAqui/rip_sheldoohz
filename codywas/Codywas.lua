@@ -25,17 +25,31 @@ if iconsOk and type(iconsResult) == "table" then
     ICONS = iconsResult
 end
 
-local Window = {
-    Title = "codywas",
-    Subtitle = (function() local n="Unknown Game"; pcall(function() n=game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end); return n.." • by rip_sheldoohz" end)(),
-    Width = 550,
-    Height = 350
-}
-
+local Window = {}
 Window.__index = Window
 
-function Window.new()
+-- Função auxiliar para gerenciar ClipsDescendants quando um dropdown/colorpicker abre
+local function setClipping(element, state)
+    local current = element.Parent
+    while current and not current:IsA("ScreenGui") do
+        if current:IsA("ScrollingFrame") or current.Name:find("Section") or current.Name:find("Page") then
+            current.ClipsDescendants = state
+        end
+        current = current.Parent
+    end
+end
+
+function Window.new(title, subtitle)
     local self = setmetatable({}, Window)
+    self.Title = title or "codywas"
+    self.Subtitle = subtitle or (function() 
+        local n = "Unknown Game"
+        pcall(function() n = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+        return n .. " • by rip_sheldoohz" 
+    end)()
+    
+    self.Width = 550
+    self.Height = 350
     self.tabs = {}
     self.sections = {}
     self.sectionCount = 0
@@ -43,7 +57,6 @@ function Window.new()
     self.dragging = false
     self.dragOffset = Vector2.new(0, 0)
     self.connections = {}
-    self.minimized = false
 
     self:_init()
     return self
@@ -383,7 +396,13 @@ function Window:_setupToggle()
     end))
 end
 
-function Window:addTab(options)
+-- ==========================================
+-- TAB CLASS
+-- ==========================================
+local Tab = {}
+Tab.__index = Tab
+
+function Window:CreateTab(options)
     local sectionName = type(options) == "table" and options.section or nil
     local tabName = type(options) == "table" and options.tab or options
     local iconName = type(options) == "table" and options.icon or nil
@@ -414,11 +433,11 @@ function Window:addTab(options)
         self.sections[sectionName] = headerContainer
     end
 
-    local tabData = {
-        name = tabName,
-        section = sectionName,
-        selected = false
-    }
+    local tabData = setmetatable({}, Tab)
+    tabData.name = tabName
+    tabData.section = sectionName
+    tabData.selected = false
+    tabData.window = self
 
     local button = Instance.new("TextButton")
     button.Name = tabName
@@ -555,10 +574,16 @@ function Window:addTab(options)
         updateTabVisuals(true)
     end
 
-    return page
+    return tabData
 end
 
-function Window:addSection(page, sectionName)
+-- ==========================================
+-- SECTION CLASS
+-- ==========================================
+local Section = {}
+Section.__index = Section
+
+function Tab:CreateSection(sectionName)
     local sectionFrame = Instance.new("Frame")
     sectionFrame.Name = sectionName .. "_Section"
     sectionFrame.Size = UDim2.new(1, 0, 0, 0)
@@ -567,7 +592,7 @@ function Window:addSection(page, sectionName)
     sectionFrame.BackgroundTransparency = 0.98
     sectionFrame.BorderSizePixel = 0
     sectionFrame.ClipsDescendants = false
-    sectionFrame.Parent = page
+    sectionFrame.Parent = self.page
 
     local sectionCorner = Instance.new("UICorner")
     sectionCorner.CornerRadius = UDim.new(0, 6)
@@ -602,34 +627,30 @@ function Window:addSection(page, sectionName)
     sectionTitle.LayoutOrder = 0
     sectionTitle.Parent = sectionFrame
 
-    return sectionFrame
+    local sectionData = setmetatable({}, Section)
+    sectionData.frame = sectionFrame
+    sectionData.window = self.window
+
+    return sectionData
 end
 
-function Window:addCheckbox(parent, options)
+-- ==========================================
+-- ELEMENTS (Atachados ao Section)
+-- ==========================================
+
+function Section:CreateCheckbox(options)
     local title = options.title or "Checkbox"
     local description = options.description or ""
     local callback = options.callback or function() end
     local default = options.default or false
-    
-    local hasKeybind = options.keybind ~= nil
-    local hasColorPick = options.colorpick ~= nil
 
-    local checkboxColor = hasColorPick and (options.colorpick.default or Theme.Accent) or Theme.Accent
-    local currentBind = hasKeybind and (options.keybind.default or Enum.KeyCode.RightShift) or nil
-
-    local checkboxData = { 
-        state = default, 
-        color = checkboxColor,
-        key = currentBind,
-        binding = false
-    }
+    local checkboxData = { state = default }
 
     local container = Instance.new("Frame")
-    container.Name = title .. "_CheckboxContainer"
+    container.Name = title .. "_Checkbox"
     container.Size = UDim2.new(1, 0, 0, 44)
     container.BackgroundTransparency = 1
-    container.ZIndex = 2
-    container.Parent = parent
+    container.Parent = self.frame
 
     local clickArea = Instance.new("TextButton")
     clickArea.Name = "ClickArea"
@@ -637,14 +658,12 @@ function Window:addCheckbox(parent, options)
     clickArea.BackgroundTransparency = 1
     clickArea.Text = ""
     clickArea.AutoButtonColor = false
-    clickArea.ZIndex = 2
     clickArea.Parent = container
 
     local textContainer = Instance.new("Frame")
     textContainer.Name = "TextContainer"
-    textContainer.Size = UDim2.new(1, -110, 1, 0)
+    textContainer.Size = UDim2.new(1, -40, 1, 0)
     textContainer.BackgroundTransparency = 1
-    textContainer.ZIndex = 2
     textContainer.Parent = container
 
     local titleLabel = Instance.new("TextLabel")
@@ -657,7 +676,6 @@ function Window:addCheckbox(parent, options)
     titleLabel.TextColor3 = Theme.TextPrimary
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.TextYAlignment = description ~= "" and Enum.TextYAlignment.Bottom or Enum.TextYAlignment.Center
-    titleLabel.ZIndex = 2
     titleLabel.Parent = textContainer
 
     if description ~= "" then
@@ -672,41 +690,24 @@ function Window:addCheckbox(parent, options)
         descLabel.TextColor3 = Theme.TextSecondary
         descLabel.TextXAlignment = Enum.TextXAlignment.Left
         descLabel.TextYAlignment = Enum.TextYAlignment.Top
-        descLabel.ZIndex = 2
         descLabel.Parent = textContainer
     end
-
-    local rightElements = Instance.new("Frame")
-    rightElements.Name = "RightElements"
-    rightElements.Size = UDim2.new(0, 130, 1, 0)
-    rightElements.Position = UDim2.new(1, 0, 0, 0)
-    rightElements.AnchorPoint = Vector2.new(1, 0)
-    rightElements.BackgroundTransparency = 1
-    rightElements.ZIndex = 3
-    rightElements.Parent = container
-
-    local elementsLayout = Instance.new("UIListLayout")
-    elementsLayout.FillDirection = Enum.FillDirection.Horizontal
-    elementsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-    elementsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    elementsLayout.Padding = UDim.new(0, 8)
-    elementsLayout.Parent = rightElements
 
     local box = Instance.new("Frame")
     box.Name = "Box"
     box.Size = UDim2.new(0, 18, 0, 18)
-    box.BackgroundColor3 = default and checkboxData.color or Theme.Panel
+    box.Position = UDim2.new(1, 0, 0.5, 0)
+    box.AnchorPoint = Vector2.new(1, 0.5)
+    box.BackgroundColor3 = default and Theme.Accent or Theme.Panel
     box.BorderSizePixel = 0
-    box.ZIndex = 4
-    box.LayoutOrder = 3
-    box.Parent = rightElements
+    box.Parent = container
 
     local boxCorner = Instance.new("UICorner")
     boxCorner.CornerRadius = UDim.new(0, 4)
     boxCorner.Parent = box
 
     local boxStroke = Instance.new("UIStroke")
-    boxStroke.Color = default and checkboxData.color or Theme.Line
+    boxStroke.Color = default and Theme.Accent or Theme.Line
     boxStroke.Thickness = 1.2
     boxStroke.Parent = box
 
@@ -719,12 +720,11 @@ function Window:addCheckbox(parent, options)
     checkIcon.Image = (ICONS.assets and ICONS.assets["lucide-check"]) or "rbxassetid://11419463440"
     checkIcon.ImageColor3 = Theme.Panel
     checkIcon.ImageTransparency = default and 0 or 1
-    checkIcon.ZIndex = 5
     checkIcon.Parent = box
 
     local function updateVisuals(animate)
-        local targetBg = checkboxData.state and checkboxData.color or Theme.Panel
-        local targetStroke = checkboxData.state and checkboxData.color or Theme.Line
+        local targetBg = checkboxData.state and Theme.Accent or Theme.Panel
+        local targetStroke = checkboxData.state and Theme.Accent or Theme.Line
         local targetTrans = checkboxData.state and 0 or 1
 
         if animate then
@@ -738,206 +738,11 @@ function Window:addCheckbox(parent, options)
         end
     end
 
-    table.insert(self.connections, clickArea.MouseButton1Click:Connect(function()
+    table.insert(self.window.connections, clickArea.MouseButton1Click:Connect(function()
         checkboxData.state = not checkboxData.state
         updateVisuals(true)
         task.spawn(callback, checkboxData.state)
     end))
-
-    if hasKeybind then
-        local bindBtn = Instance.new("TextButton")
-        bindBtn.Name = "BindButton"
-        bindBtn.Size = UDim2.new(0, 44, 0, 18)
-        bindBtn.BackgroundColor3 = Theme.HoverFill
-        bindBtn.BackgroundTransparency = 0.96
-        bindBtn.Text = currentBind.Name
-        bindBtn.Font = FONT
-        bindBtn.TextSize = 11
-        bindBtn.TextColor3 = Theme.TextSecondary
-        bindBtn.ZIndex = 4
-        bindBtn.LayoutOrder = 1
-        bindBtn.Parent = rightElements
-
-        local bCorner = Instance.new("UICorner")
-        bCorner.CornerRadius = UDim.new(0, 4)
-        bCorner.Parent = bindBtn
-
-        local bStroke = Instance.new("UIStroke")
-        bStroke.Color = Theme.Line
-        bStroke.Thickness = 1
-        bStroke.Parent = bindBtn
-
-        table.insert(self.connections, bindBtn.MouseButton1Click:Connect(function()
-            checkboxData.binding = true
-            bindBtn.Text = "..."
-        end))
-
-        table.insert(self.connections, UserInputService.InputBegan:Connect(function(input, processed)
-            if processed then return end
-            if checkboxData.binding and input.UserInputType == Enum.UserInputType.Keyboard then
-                checkboxData.key = input.KeyCode
-                bindBtn.Text = input.KeyCode.Name
-                checkboxData.binding = false
-                if options.keybind.callback then task.spawn(options.keybind.callback, input.KeyCode) end
-            end
-        end))
-    end
-
-    if hasColorPick then
-        local cpBox = Instance.new("TextButton")
-        cpBox.Name = "ColorButton"
-        cpBox.Size = UDim2.new(0, 22, 0, 14)
-        cpBox.BackgroundColor3 = checkboxData.color
-        cpBox.Text = ""
-        cpBox.ZIndex = 4
-        cpBox.LayoutOrder = 2
-        cpBox.Parent = rightElements
-
-        local cpCorner = Instance.new("UICorner")
-        cpCorner.CornerRadius = UDim.new(0, 3)
-        cpCorner.Parent = cpBox
-
-        local cpStroke = Instance.new("UIStroke")
-        cpStroke.Color = Theme.Line
-        cpStroke.Thickness = 1
-        cpStroke.Parent = cpBox
-
-        local palette = Instance.new("Frame")
-        palette.Name = "Palette"
-        palette.Size = UDim2.new(0, 162, 0, 0)
-        palette.Position = UDim2.new(1, 0, 1, 4)
-        palette.AnchorPoint = Vector2.new(1, 0)
-        palette.BackgroundColor3 = Theme.Panel
-        palette.Visible = false
-        palette.ZIndex = 50
-        palette.Parent = cpBox
-
-        local pCorner = Instance.new("UICorner")
-        pCorner.CornerRadius = UDim.new(0, 6)
-        pCorner.Parent = palette
-
-        local pStroke = Instance.new("UIStroke")
-        pStroke.Color = Theme.Line
-        pStroke.Thickness = 1
-        pStroke.Parent = palette
-
-        local H, S, V = Color3.toHSV(checkboxData.color)
-        
-        local satMap = Instance.new("ImageLabel")
-        satMap.Name = "SatMap"
-        satMap.Size = UDim2.new(0, 130, 0, 90)
-        satMap.Position = UDim2.new(0, 6, 0, 6)
-        satMap.Image = "rbxassetid://4155801252"
-        satMap.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
-        satMap.ZIndex = 51
-        satMap.Parent = palette
-
-        local smCorner = Instance.new("UICorner")
-        smCorner.CornerRadius = UDim.new(0, 4)
-        smCorner.Parent = satMap
-
-        local cursor = Instance.new("ImageLabel")
-        cursor.Name = "Cursor"
-        cursor.Size = UDim2.new(0, 8, 0, 8)
-        cursor.AnchorPoint = Vector2.new(0.5, 0.5)
-        cursor.BackgroundTransparency = 1
-        cursor.Image = "http://www.roblox.com/asset/?id=4805639000"
-        cursor.Position = UDim2.new(S, 0, 1 - V, 0)
-        cursor.ZIndex = 52
-        cursor.Parent = satMap
-
-        local hueBar = Instance.new("Frame")
-        hueBar.Name = "HueBar"
-        hueBar.Size = UDim2.new(0, 14, 0, 90)
-        hueBar.Position = UDim2.new(0, 142, 0, 6)
-        hueBar.ZIndex = 51
-        hueBar.Parent = palette
-
-        local hbCorner = Instance.new("UICorner")
-        hbCorner.CornerRadius = UDim.new(0, 4)
-        hbCorner.Parent = hueBar
-
-        local hueGrad = Instance.new("UIGradient")
-        hueGrad.Rotation = 90
-        local pts = {}
-        for i = 0, 1, 0.1 do table.insert(pts, ColorSequenceKeypoint.new(i, Color3.fromHSV(i, 1, 1))) end
-        hueGrad.Color = ColorSequence.new(pts)
-        hueGrad.Parent = hueBar
-
-        local hueDrag = Instance.new("Frame")
-        hueDrag.Name = "Drag"
-        hueDrag.Size = UDim2.new(1, 4, 0, 3)
-        hueDrag.Position = UDim2.new(0, -2, H, 0)
-        hueDrag.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        hueDrag.BorderSizePixel = 0
-        hueDrag.ZIndex = 52
-        hueDrag.Parent = hueBar
-
-        local function updateColor()
-            local cColor = Color3.fromHSV(H, S, V)
-            checkboxData.color = cColor
-            if cpBox and cpBox:IsA("GuiObject") then
-                cpBox.BackgroundColor3 = cColor
-            end
-            satMap.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
-            cursor.Position = UDim2.new(S, 0, 1 - V, 0)
-            hueDrag.Position = UDim2.new(0, -2, H, 0)
-            
-            updateVisuals(false)
-            if options.colorpick.callback then task.spawn(options.colorpick.callback, cColor) end
-        end
-
-        table.insert(self.connections, satMap.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                local conn
-                conn = RunService.RenderStepped:Connect(function()
-                    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                        local mLoc = UserInputService:GetMouseLocation()
-                        S = math.clamp((mLoc.X - satMap.AbsolutePosition.X) / satMap.AbsoluteSize.X, 0, 1)
-                        V = math.clamp(1 - ((mLoc.Y - 36 - satMap.AbsolutePosition.Y) / satMap.AbsoluteSize.Y), 0, 1)
-                        updateColor()
-                    else
-                        conn:Disconnect()
-                    end
-                end)
-            end
-        end))
-
-        table.insert(self.connections, hueBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                local conn
-                conn = RunService.RenderStepped:Connect(function()
-                    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                        local mLoc = UserInputService:GetMouseLocation()
-                        H = math.clamp((mLoc.Y - 36 - hueBar.AbsolutePosition.Y) / hueBar.AbsoluteSize.Y, 0, 1)
-                        updateColor()
-                    else
-                        conn:Disconnect()
-                    end
-                end)
-            end
-        end))
-
-        local cpOpen = false
-        table.insert(self.connections, cpBox.MouseButton1Click:Connect(function()
-            cpOpen = not cpOpen
-            if cpOpen then
-                container.ZIndex = 20
-                palette.Visible = true
-                TweenService:Create(palette, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 162, 0, 102)}):Play()
-            else
-                TweenService:Create(palette, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 162, 0, 0)}):Play()
-                task.delay(0.15, function()
-                    if not cpOpen then 
-                        container.ZIndex = 2 
-                        palette.Visible = false 
-                    end
-                end)
-            end
-        end))
-
-        checkboxData.colorButtonInstance = cpBox
-    end
 
     function checkboxData:Set(value)
         checkboxData.state = value
@@ -945,18 +750,10 @@ function Window:addCheckbox(parent, options)
         task.spawn(callback, checkboxData.state)
     end
 
-    function checkboxData:SetColor(newColor)
-        checkboxData.color = newColor
-        if checkboxData.colorButtonInstance and checkboxData.colorButtonInstance:IsA("GuiObject") then
-            checkboxData.colorButtonInstance.BackgroundColor3 = newColor
-        end
-        updateVisuals(true)
-    end
-
     return checkboxData
 end
 
-function Window:addSlider(parent, options)
+function Section:CreateSlider(options)
     local title = options.title or "Slider"
     local description = options.description or ""
     local min = options.min or 0
@@ -971,7 +768,7 @@ function Window:addSlider(parent, options)
     container.Name = title .. "_Slider"
     container.Size = UDim2.new(1, 0, 0, description ~= "" and 58 or 50)
     container.BackgroundTransparency = 1
-    container.Parent = parent
+    container.Parent = self.frame
 
     local textContainer = Instance.new("Frame")
     textContainer.Name = "TextContainer"
@@ -1071,20 +868,20 @@ function Window:addSlider(parent, options)
         task.spawn(callback, finalValue)
     end
 
-    table.insert(self.connections, sliderBar.InputBegan:Connect(function(input)
+    table.insert(self.window.connections, sliderBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             updateSlider(input.Position)
         end
     end))
 
-    table.insert(self.connections, UserInputService.InputChanged:Connect(function(input)
+    table.insert(self.window.connections, UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             updateSlider(input.Position)
         end
     end))
 
-    table.insert(self.connections, UserInputService.InputEnded:Connect(function(input)
+    table.insert(self.window.connections, UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
@@ -1103,7 +900,7 @@ function Window:addSlider(parent, options)
     return sliderData
 end
 
-function Window:addDropdown(parent, options)
+function Section:CreateDropdown(options)
     local title = options.title or "Dropdown"
     local list = options.list or {}
     local default = options.default or ""
@@ -1115,8 +912,8 @@ function Window:addDropdown(parent, options)
     container.Name = title .. "_Dropdown"
     container.Size = UDim2.new(1, 0, 0, 44)
     container.BackgroundTransparency = 1
-    container.ZIndex = 1
-    container.Parent = parent
+    container.ZIndex = 10
+    container.Parent = self.frame
 
     local header = Instance.new("TextButton")
     header.Name = "Header"
@@ -1216,7 +1013,7 @@ function Window:addDropdown(parent, options)
             if child:IsA("TextButton") then child:Destroy() end
         end
 
-        for i, optionName in ipairs(dropdownData.options) do
+        for _, optionName in ipairs(dropdownData.options) do
             local optBtn = Instance.new("TextButton")
             optBtn.Name = optionName
             optBtn.Size = UDim2.new(1, 0, 0, 26)
@@ -1245,21 +1042,22 @@ function Window:addDropdown(parent, options)
             optLabel.TextXAlignment = Enum.TextXAlignment.Left
             optLabel.Parent = optBtn
 
-            table.insert(self.connections, optBtn.MouseEnter:Connect(function()
+            table.insert(self.window.connections, optBtn.MouseEnter:Connect(function()
                 TweenService:Create(optBtn, TweenInfo.new(0.1), {BackgroundTransparency = 0.96}):Play()
             end))
 
-            table.insert(self.connections, optBtn.MouseLeave:Connect(function()
+            table.insert(self.window.connections, optBtn.MouseLeave:Connect(function()
                 TweenService:Create(optBtn, TweenInfo.new(0.1), {BackgroundTransparency = 1}):Play()
             end))
 
-            table.insert(self.connections, optBtn.MouseButton1Click:Connect(function()
+            table.insert(self.window.connections, optBtn.MouseButton1Click:Connect(function()
                 dropdownData.value = optionName
                 valueLabel.Text = optionName
                 valueLabel.TextColor3 = Theme.TextPrimary
                 
                 dropdownData.open = false
-                container.ZIndex = 1
+                container.ZIndex = 10
+                setClipping(container, true) -- Ativa clipping novamente ao fechar
                 
                 TweenService:Create(optionListFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0.5, 0, 0, 0)}):Play()
                 TweenService:Create(arrowIcon, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Rotation = 0}):Play()
@@ -1274,11 +1072,12 @@ function Window:addDropdown(parent, options)
         end
     end
 
-    table.insert(self.connections, header.MouseButton1Click:Connect(function()
+    table.insert(self.window.connections, header.MouseButton1Click:Connect(function()
         dropdownData.open = not dropdownData.open
         
         if dropdownData.open then
-            container.ZIndex = 30
+            setClipping(container, false) -- Desativa clipping dos parent frames ao abrir para evitar cutoff!
+            container.ZIndex = 500
             optionListFrame.Visible = true
             local listSize = optionListLayout.AbsoluteContentSize.Y + 8
             
@@ -1290,8 +1089,9 @@ function Window:addDropdown(parent, options)
             
             task.delay(0.15, function()
                 if not dropdownData.open then 
-                    container.ZIndex = 1 
+                    container.ZIndex = 10 
                     optionListFrame.Visible = false 
+                    setClipping(container, true) -- Re-ativa clipping após sumir da tela
                 end
             end)
         end
@@ -1307,10 +1107,268 @@ function Window:addDropdown(parent, options)
         task.spawn(callback, value)
     end
 
+    function dropdownData:Refresh(newList)
+        dropdownData.options = newList
+        refreshOptions()
+    end
+
     return dropdownData
 end
 
-function Window:addButton(parent, options)
+function Section:CreateColorpicker(options)
+    local title = options.title or "Colorpicker"
+    local default = options.default or Color3.fromRGB(255, 255, 255)
+    local callback = options.callback or function() end
+
+    local colorData = { color = default, open = false }
+
+    local container = Instance.new("Frame")
+    container.Name = title .. "_Colorpicker"
+    container.Size = UDim2.new(1, 0, 0, 44)
+    container.BackgroundTransparency = 1
+    container.ZIndex = 10
+    container.Parent = self.frame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.Font = FONT
+    titleLabel.TextSize = 13
+    titleLabel.TextColor3 = Theme.TextPrimary
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = container
+
+    local cpBox = Instance.new("TextButton")
+    cpBox.Name = "ColorButton"
+    cpBox.Size = UDim2.new(0, 32, 0, 18)
+    cpBox.Position = UDim2.new(1, 0, 0.5, 0)
+    cpBox.AnchorPoint = Vector2.new(1, 0.5)
+    cpBox.BackgroundColor3 = default
+    cpBox.Text = ""
+    cpBox.Parent = container
+
+    local cpCorner = Instance.new("UICorner")
+    cpCorner.CornerRadius = UDim.new(0, 4)
+    cpCorner.Parent = cpBox
+
+    local cpStroke = Instance.new("UIStroke")
+    cpStroke.Color = Theme.Line
+    cpStroke.Thickness = 1
+    cpStroke.Parent = cpBox
+
+    local palette = Instance.new("Frame")
+    palette.Name = "Palette"
+    palette.Size = UDim2.new(0, 162, 0, 0)
+    palette.Position = UDim2.new(1, 0, 1, 4)
+    palette.AnchorPoint = Vector2.new(1, 0)
+    palette.BackgroundColor3 = Theme.Panel
+    palette.Visible = false
+    palette.ZIndex = 500
+    palette.Parent = cpBox
+
+    local pCorner = Instance.new("UICorner")
+    pCorner.CornerRadius = UDim.new(0, 6)
+    pCorner.Parent = palette
+
+    local pStroke = Instance.new("UIStroke")
+    pStroke.Color = Theme.Line
+    pStroke.Thickness = 1
+    pStroke.Parent = palette
+
+    local H, S, V = Color3.toHSV(default)
+    
+    local satMap = Instance.new("ImageLabel")
+    satMap.Name = "SatMap"
+    satMap.Size = UDim2.new(0, 130, 0, 90)
+    satMap.Position = UDim2.new(0, 6, 0, 6)
+    satMap.Image = "rbxassetid://4155801252"
+    satMap.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
+    satMap.ZIndex = 501
+    satMap.Parent = palette
+
+    local smCorner = Instance.new("UICorner")
+    smCorner.CornerRadius = UDim.new(0, 4)
+    smCorner.Parent = satMap
+
+    local cursor = Instance.new("ImageLabel")
+    cursor.Name = "Cursor"
+    cursor.Size = UDim2.new(0, 8, 0, 8)
+    cursor.AnchorPoint = Vector2.new(0.5, 0.5)
+    cursor.BackgroundTransparency = 1
+    cursor.Image = "http://www.roblox.com/asset/?id=4805639000"
+    cursor.Position = UDim2.new(S, 0, 1 - V, 0)
+    cursor.ZIndex = 502
+    cursor.Parent = satMap
+
+    local hueBar = Instance.new("Frame")
+    hueBar.Name = "HueBar"
+    hueBar.Size = UDim2.new(0, 14, 0, 90)
+    hueBar.Position = UDim2.new(0, 142, 0, 6)
+    hueBar.ZIndex = 501
+    hueBar.Parent = palette
+
+    local hbCorner = Instance.new("UICorner")
+    hbCorner.CornerRadius = UDim.new(0, 4)
+    hbCorner.Parent = hueBar
+
+    local hueGrad = Instance.new("UIGradient")
+    hueGrad.Rotation = 90
+    local pts = {}
+    for i = 0, 1, 0.1 do table.insert(pts, ColorSequenceKeypoint.new(i, Color3.fromHSV(i, 1, 1))) end
+    hueGrad.Color = ColorSequence.new(pts)
+    hueGrad.Parent = hueBar
+
+    local hueDrag = Instance.new("Frame")
+    hueDrag.Name = "Drag"
+    hueDrag.Size = UDim2.new(1, 4, 0, 3)
+    hueDrag.Position = UDim2.new(0, -2, H, 0)
+    hueDrag.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    hueDrag.BorderSizePixel = 0
+    hueDrag.ZIndex = 502
+    hueDrag.Parent = hueBar
+
+    local function updateColor()
+        local cColor = Color3.fromHSV(H, S, V)
+        colorData.color = cColor
+        cpBox.BackgroundColor3 = cColor
+        satMap.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
+        cursor.Position = UDim2.new(S, 0, 1 - V, 0)
+        hueDrag.Position = UDim2.new(0, -2, H, 0)
+        task.spawn(callback, cColor)
+    end
+
+    table.insert(self.window.connections, satMap.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local conn
+            conn = RunService.RenderStepped:Connect(function()
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                    local mLoc = UserInputService:GetMouseLocation()
+                    S = math.clamp((mLoc.X - satMap.AbsolutePosition.X) / satMap.AbsoluteSize.X, 0, 1)
+                    V = math.clamp(1 - ((mLoc.Y - 36 - satMap.AbsolutePosition.Y) / satMap.AbsoluteSize.Y), 0, 1)
+                    updateColor()
+                else
+                    conn:Disconnect()
+                end
+            end)
+        end
+    end))
+
+    table.insert(self.window.connections, hueBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local conn
+            conn = RunService.RenderStepped:Connect(function()
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                    local mLoc = UserInputService:GetMouseLocation()
+                    H = math.clamp((mLoc.Y - 36 - hueBar.AbsolutePosition.Y) / hueBar.AbsoluteSize.Y, 0, 1)
+                    updateColor()
+                else
+                    conn:Disconnect()
+                end
+            end)
+        end
+    end))
+
+    table.insert(self.window.connections, cpBox.MouseButton1Click:Connect(function()
+        colorData.open = not colorData.open
+        if colorData.open then
+            setClipping(container, false)
+            container.ZIndex = 500
+            palette.Visible = true
+            TweenService:Create(palette, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 162, 0, 102)}):Play()
+        else
+            TweenService:Create(palette, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 162, 0, 0)}):Play()
+            task.delay(0.15, function()
+                if not colorData.open then 
+                    container.ZIndex = 10 
+                    palette.Visible = false 
+                    setClipping(container, true)
+                end
+            end)
+        end
+    end))
+
+    function colorData:Set(newColor)
+        colorData.color = newColor
+        H, S, V = Color3.toHSV(newColor)
+        updateColor()
+    end
+
+    return colorData
+end
+
+function Section:CreateKeybind(options)
+    local title = options.title or "Keybind"
+    local default = options.default or Enum.KeyCode.RightShift
+    local callback = options.callback or function() end
+
+    local bindData = { key = default, binding = false }
+
+    local container = Instance.new("Frame")
+    container.Name = title .. "_Keybind"
+    container.Size = UDim2.new(1, 0, 0, 36)
+    container.BackgroundTransparency = 1
+    container.Parent = self.frame
+
+    local label = Instance.new("TextLabel")
+    label.Name = "Label"
+    label.Size = UDim2.new(1, -60, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = title
+    label.Font = FONT
+    label.TextSize = 13
+    label.TextColor3 = Theme.TextPrimary
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+
+    local bindBtn = Instance.new("TextButton")
+    bindBtn.Name = "Button"
+    bindBtn.Size = UDim2.new(0, 60, 0, 24)
+    bindBtn.Position = UDim2.new(1, 0, 0.5, 0)
+    bindBtn.AnchorPoint = Vector2.new(1, 0.5)
+    bindBtn.BackgroundColor3 = Theme.HoverFill
+    bindBtn.BackgroundTransparency = 0.96
+    bindBtn.Text = default.Name
+    bindBtn.Font = FONT
+    bindBtn.TextSize = 11
+    bindBtn.TextColor3 = Theme.TextSecondary
+    bindBtn.Parent = container
+
+    local bCorner = Instance.new("UICorner")
+    bCorner.CornerRadius = UDim.new(0, 4)
+    bCorner.Parent = bindBtn
+
+    local bStroke = Instance.new("UIStroke")
+    bStroke.Color = Theme.Line
+    bStroke.Thickness = 1
+    bStroke.Parent = bindBtn
+
+    table.insert(self.window.connections, bindBtn.MouseButton1Click:Connect(function()
+        bindData.binding = true
+        bindBtn.Text = "..."
+    end))
+
+    table.insert(self.window.connections, UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if bindData.binding and input.UserInputType == Enum.UserInputType.Keyboard then
+            bindData.key = input.KeyCode
+            bindBtn.Text = input.KeyCode.Name
+            bindData.binding = false
+            task.spawn(callback, input.KeyCode)
+        end
+    end))
+
+    function bindData:Set(newKey)
+        bindData.key = newKey
+        bindBtn.Text = newKey.Name
+        task.spawn(callback, newKey)
+    end
+
+    return bindData
+end
+
+function Section:CreateButton(options)
     local title = options.title or "Button"
     local callback = options.callback or function() end
 
@@ -1323,7 +1381,7 @@ function Window:addButton(parent, options)
     button.BackgroundTransparency = 0.96
     button.AutoButtonColor = false
     button.Text = ""
-    button.Parent = parent
+    button.Parent = self.frame
 
     local bCorner = Instance.new("UICorner")
     bCorner.CornerRadius = UDim.new(0, 4)
@@ -1345,15 +1403,15 @@ function Window:addButton(parent, options)
     label.TextXAlignment = Enum.TextXAlignment.Center
     label.Parent = button
 
-    table.insert(self.connections, button.MouseEnter:Connect(function()
+    table.insert(self.window.connections, button.MouseEnter:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.1), {BackgroundTransparency = 0.92}):Play()
     end))
 
-    table.insert(self.connections, button.MouseLeave:Connect(function()
+    table.insert(self.window.connections, button.MouseLeave:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.1), {BackgroundTransparency = 0.96}):Play()
     end))
 
-    table.insert(self.connections, button.MouseButton1Click:Connect(function()
+    table.insert(self.window.connections, button.MouseButton1Click:Connect(function()
         button.BackgroundTransparency = 0.88
         task.delay(0.05, function() button.BackgroundTransparency = 0.92 end)
         task.spawn(callback)
@@ -1366,7 +1424,7 @@ function Window:addButton(parent, options)
     return btnData
 end
 
-function Window:addLabel(parent, text)
+function Section:CreateLabel(text)
     local labelData = {}
 
     local label = Instance.new("TextLabel")
@@ -1378,7 +1436,7 @@ function Window:addLabel(parent, text)
     label.TextSize = 13
     label.TextColor3 = Theme.TextPrimary
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = parent
+    label.Parent = self.frame
 
     function labelData:SetText(newText)
         label.Text = newText
@@ -1391,7 +1449,7 @@ function Window:addLabel(parent, text)
     return labelData
 end
 
-function Window:addParagraph(parent, options)
+function Section:CreateParagraph(options)
     local title = options.title or "Informação"
     local content = options.content or ""
     local paraData = {}
@@ -1401,7 +1459,7 @@ function Window:addParagraph(parent, options)
     container.Size = UDim2.new(1, 0, 0, 0)
     container.AutomaticSize = Enum.AutomaticSize.Y
     container.BackgroundTransparency = 1
-    container.Parent = parent
+    container.Parent = self.frame
 
     local layout = Instance.new("UIListLayout")
     layout.Padding = UDim.new(0, 2)
@@ -1443,76 +1501,6 @@ function Window:addParagraph(parent, options)
     end
 
     return paraData
-end
-
-function Window:addKeybind(parent, options)
-    local title = options.title or "Keybind"
-    local default = options.default or Enum.KeyCode.RightShift
-    local callback = options.callback or function() end
-
-    local bindData = { key = default, binding = false }
-
-    local container = Instance.new("Frame")
-    container.Name = title .. "_Keybind"
-    container.Size = UDim2.new(1, 0, 0, 36)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    local label = Instance.new("TextLabel")
-    label.Name = "Label"
-    label.Size = UDim2.new(1, -60, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = title
-    label.Font = FONT
-    label.TextSize = 13
-    label.TextColor3 = Theme.TextPrimary
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
-
-    local bindBtn = Instance.new("TextButton")
-    bindBtn.Name = "Button"
-    bindBtn.Size = UDim2.new(0, 60, 0, 24)
-    bindBtn.Position = UDim2.new(1, 0, 0.5, 0)
-    bindBtn.AnchorPoint = Vector2.new(1, 0.5)
-    bindBtn.BackgroundColor3 = Theme.HoverFill
-    bindBtn.BackgroundTransparency = 0.96
-    bindBtn.Text = default.Name
-    bindBtn.Font = FONT
-    bindBtn.TextSize = 11
-    bindBtn.TextColor3 = Theme.TextSecondary
-    bindBtn.Parent = container
-
-    local bCorner = Instance.new("UICorner")
-    bCorner.CornerRadius = UDim.new(0, 4)
-    bCorner.Parent = bindBtn
-
-    local bStroke = Instance.new("UIStroke")
-    bStroke.Color = Theme.Line
-    bStroke.Thickness = 1
-    bStroke.Parent = bindBtn
-
-    table.insert(self.connections, bindBtn.MouseButton1Click:Connect(function()
-        bindData.binding = true
-        bindBtn.Text = "..."
-    end))
-
-    table.insert(self.connections, UserInputService.InputBegan:Connect(function(input, processed)
-        if processed then return end
-        if bindData.binding and input.UserInputType == Enum.UserInputType.Keyboard then
-            bindData.key = input.KeyCode
-            bindBtn.Text = input.KeyCode.Name
-            bindData.binding = false
-            task.spawn(callback, input.KeyCode)
-        end
-    end))
-
-    function bindData:Set(newKey)
-        bindData.key = newKey
-        bindBtn.Text = newKey.Name
-        task.spawn(callback, newKey)
-    end
-
-    return bindData
 end
 
 function Window:Destroy()
