@@ -1,7 +1,7 @@
 # CodywasNotif
 
 ```md
-local CodywasNotif = loadstring(game:HttpGet(""))()
+local CodywasNotif = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/notifications/CodywasNotif.luau"))()
 local Notify = CodywasNotif.Notify
 
 task.wait(1)
