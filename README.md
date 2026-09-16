@@ -9,6 +9,9 @@
 [Updates]
 # Nothing yet.
 
+[Librarys]
+# Nothing yet.
+
 [New Files]
 + bytecore.luau
 + Inkwell.luau
