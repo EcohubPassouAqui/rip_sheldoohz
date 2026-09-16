@@ -1,6 +1,7 @@
 # Inkwell
+
 ```md
-local module = loadstring(game:HttpGet(""))()
+local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohzV1/refs/heads/main/projects/templates/Inkwell.luau"))()
 
 local msg1 = module.print({
     message = "iniciando script dump",
