@@ -1,10 +1,13 @@
+-- // Serviço
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
+-- // Fontes
 local FONT = Enum.Font.BuilderSans
 local FONT_BOLD = Enum.Font.BuilderSansBold
 
+-- // Theme
 local Theme = {
     Panel = Color3.fromRGB(20, 20, 20),
     HoverFill = Color3.fromRGB(255, 255, 255),
@@ -16,6 +19,7 @@ local Theme = {
     Accent = Color3.fromRGB(255, 255, 255)
 }
 
+-- // Icons
 local ICONS = { assets = {} }
 pcall(function()
     local result = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/assets/fonts/Icons.luau"))()
@@ -26,17 +30,59 @@ end)
 local CodywasNotif = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/notifications/CodywasNotif.luau"))()
 local Notify = CodywasNotif.Notify
 
--- // AntiCheat
-local AntiCheat = {}
-AntiCheat.enabled = true
+-- // Shield
+local Shield = {}
 
-function AntiCheat:Init()
+function Shield:RandomName()
+    local chars = "abcdefghijklmnopqrstuvwxyz"
+    local name = ""
+    for _ = 1, math.random(8, 14) do
+        local i = math.random(1, #chars)
+        name = name .. chars:sub(i, i)
+    end
+    return name
+end
+
+function Shield:GetContainer()
+    if gethui then return gethui() end
+    return Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+
+function Shield:PlaceGui(gui)
+    if not gui then return end
+    pcall(function()
+        if syn and syn.protect_gui then
+            syn.protect_gui(gui)
+            gui.Parent = game:GetService("CoreGui")
+        elseif gethui then
+            gui.Parent = gethui()
+        else
+            gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+        end
+    end)
+end
+
+function Shield:HideObject(obj)
+    if not obj then return end
+    pcall(function()
+        if sethiddenproperty then
+            sethiddenproperty(obj, "Archivable", false)
+        end
+        if makereadonly then
+            makereadonly(obj)
+        elseif setreadonly then
+            setreadonly(obj, true)
+        end
+    end)
+end
+
+function Shield:HookDetections()
     if setthreadidentity then
         pcall(function() setthreadidentity(8) end)
     end
 
-    if setstackhidden and AntiCheat.Init then
-        pcall(function() setstackhidden(AntiCheat.Init, true) end)
+    if setstackhidden and Shield.HookDetections then
+        pcall(function() setstackhidden(Shield.HookDetections, true) end)
     end
 
     if getgc then
@@ -94,32 +140,14 @@ function AntiCheat:Init()
             end))
         end)
     end
-
-    Notify({ Title = "AntiCheat", Description = "Bypass ativo com sucesso.", Duration = 4 })
 end
 
-function AntiCheat:ProtectObject(obj)
-    if not obj then return end
-    pcall(function()
-        if makereadonly then
-            makereadonly(obj)
-        elseif setreadonly then
-            setreadonly(obj, true)
-        end
-        if sethiddenproperty then
-            sethiddenproperty(obj, "Visible", true)
-        end
-    end)
-end
-
-function AntiCheat:IsOurThread(thread)
-    if isourthread then return isourthread(thread or coroutine.running()) end
-    return true
-end
-
-function AntiCheat:IsHooked(fn)
-    if isfunctionhooked then return isfunctionhooked(fn) end
-    return false
+function Shield:Init()
+    local ok, err = pcall(function() Shield:HookDetections() end)
+    if not ok then
+        Notify({ Title = "CodyWas | Erro", Description = tostring(err), Duration = 6 })
+        return
+    end
 end
 
 -- // Elements
@@ -149,7 +177,7 @@ function Window.new(title, subtitle)
     self.connections = {}
 
     local ok, err = pcall(function()
-        AntiCheat:Init()
+        Shield:Init()
         self:_init()
     end)
 
@@ -160,27 +188,27 @@ function Window.new(title, subtitle)
     return self
 end
 
-
 function Window:_init()
     local player = Players.LocalPlayer
     if not player then return end
-    local playerGui = player:WaitForChild("PlayerGui")
 
-    for _, child in ipairs(playerGui:GetChildren()) do
-        if child.Name == self.Title or child.Name == self.Title .. "_Toggle" then
+    local container = Shield:GetContainer()
+
+    for _, child in ipairs(container:GetChildren()) do
+        if child.Name == "codywas" or child.Name == "codywas_toggle" then
             child:Destroy()
         end
     end
 
     self.screenGui = Instance.new("ScreenGui")
-    self.screenGui.Name = self.Title
+    self.screenGui.Name = "codywas"
     self.screenGui.ResetOnSpawn = false
     self.screenGui.DisplayOrder = 999
-    self.screenGui.Parent = playerGui
-    AntiCheat:ProtectObject(self.screenGui)
+    Shield:PlaceGui(self.screenGui)
+    Shield:HideObject(self.screenGui)
 
     self.mainPanel = Instance.new("Frame")
-    self.mainPanel.Name = "MainPanel"
+    self.mainPanel.Name = Shield:RandomName()
     self.mainPanel.AnchorPoint = Vector2.new(0.5, 0.5)
     self.mainPanel.Size = UDim2.new(0, self.Width, 0, self.Height)
     self.mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -188,7 +216,7 @@ function Window:_init()
     self.mainPanel.BorderSizePixel = 0
     self.mainPanel.ClipsDescendants = true
     self.mainPanel.Parent = self.screenGui
-    AntiCheat:ProtectObject(self.mainPanel)
+    Shield:HideObject(self.mainPanel)
 
     local panelCorner = Instance.new("UICorner")
     panelCorner.CornerRadius = UDim.new(0, 6)
@@ -196,13 +224,13 @@ function Window:_init()
 
     self:_createTopBar()
     self:_createContent()
-    self:_createToggleButton(playerGui)
+    self:_createToggleButton()
     self:_setupDrag()
 end
 
 function Window:_createTopBar()
     self.topBar = Instance.new("Frame")
-    self.topBar.Name = "TopBar"
+    self.topBar.Name = Shield:RandomName()
     self.topBar.Size = UDim2.new(1, 0, 0, 55)
     self.topBar.BackgroundTransparency = 1
     self.topBar.BorderSizePixel = 0
@@ -210,7 +238,6 @@ function Window:_createTopBar()
     self.topBar.Parent = self.mainPanel
 
     local topBarLine = Instance.new("Frame")
-    topBarLine.Name = "Line"
     topBarLine.Size = UDim2.new(1, 0, 0, 1)
     topBarLine.Position = UDim2.new(0, 0, 1, -1)
     topBarLine.BackgroundColor3 = Theme.Line
@@ -218,7 +245,6 @@ function Window:_createTopBar()
     topBarLine.Parent = self.topBar
 
     local textContainer = Instance.new("Frame")
-    textContainer.Name = "TextContainer"
     textContainer.Size = UDim2.new(1, -220, 1, 0)
     textContainer.Position = UDim2.new(0, 18, 0, 0)
     textContainer.BackgroundTransparency = 1
@@ -226,7 +252,6 @@ function Window:_createTopBar()
     textContainer.Parent = self.topBar
 
     self.titleLabel = Instance.new("TextLabel")
-    self.titleLabel.Name = "TitleLabel"
     self.titleLabel.Size = UDim2.new(1, 0, 0, 22)
     self.titleLabel.Position = UDim2.new(0, 0, 0, 10)
     self.titleLabel.BackgroundTransparency = 1
@@ -238,7 +263,6 @@ function Window:_createTopBar()
     self.titleLabel.Parent = textContainer
 
     self.subtitleLabel = Instance.new("TextLabel")
-    self.subtitleLabel.Name = "SubtitleLabel"
     self.subtitleLabel.Size = UDim2.new(1, 0, 0, 14)
     self.subtitleLabel.Position = UDim2.new(0, 0, 0, 29)
     self.subtitleLabel.BackgroundTransparency = 1
@@ -250,7 +274,6 @@ function Window:_createTopBar()
     self.subtitleLabel.Parent = textContainer
 
     local searchContainer = Instance.new("Frame")
-    searchContainer.Name = "SearchContainer"
     searchContainer.Size = UDim2.new(0, 160, 0, 28)
     searchContainer.Position = UDim2.new(1, -18, 0.5, 0)
     searchContainer.AnchorPoint = Vector2.new(1, 0.5)
@@ -265,7 +288,6 @@ function Window:_createTopBar()
     searchCorner.Parent = searchContainer
 
     local searchIcon = Instance.new("ImageLabel")
-    searchIcon.Name = "SearchIcon"
     searchIcon.Size = UDim2.new(0, 14, 0, 14)
     searchIcon.Position = UDim2.new(0, 8, 0.5, -7)
     searchIcon.BackgroundTransparency = 1
@@ -274,7 +296,6 @@ function Window:_createTopBar()
     searchIcon.Parent = searchContainer
 
     self.searchBox = Instance.new("TextBox")
-    self.searchBox.Name = "SearchInput"
     self.searchBox.Size = UDim2.new(1, -32, 1, 0)
     self.searchBox.Position = UDim2.new(0, 28, 0.5, 0)
     self.searchBox.AnchorPoint = Vector2.new(0, 0.5)
@@ -328,7 +349,6 @@ end
 
 function Window:_createContent()
     self.contentFrame = Instance.new("Frame")
-    self.contentFrame.Name = "ContentFrame"
     self.contentFrame.Size = UDim2.new(1, 0, 1, -55)
     self.contentFrame.Position = UDim2.new(0, 0, 0, 55)
     self.contentFrame.BackgroundTransparency = 1
@@ -337,7 +357,6 @@ function Window:_createContent()
     self.contentFrame.Parent = self.mainPanel
 
     self.tabBar = Instance.new("ScrollingFrame")
-    self.tabBar.Name = "TabBar"
     self.tabBar.Size = UDim2.new(0, 150, 1, 0)
     self.tabBar.BackgroundTransparency = 1
     self.tabBar.BorderSizePixel = 0
@@ -347,7 +366,6 @@ function Window:_createContent()
     self.tabBar.Parent = self.contentFrame
 
     local sectionLine = Instance.new("Frame")
-    sectionLine.Name = "SectionLine"
     sectionLine.Size = UDim2.new(0, 1, 1, 0)
     sectionLine.Position = UDim2.new(0, 149, 0, 0)
     sectionLine.BackgroundColor3 = Theme.Line
@@ -368,7 +386,6 @@ function Window:_createContent()
     tabListPadding.Parent = self.tabBar
 
     self.tabContent = Instance.new("Frame")
-    self.tabContent.Name = "TabContent"
     self.tabContent.Size = UDim2.new(1, -150, 1, 0)
     self.tabContent.Position = UDim2.new(0, 150, 0, 0)
     self.tabContent.BackgroundTransparency = 1
@@ -377,15 +394,15 @@ function Window:_createContent()
     self.tabContent.Parent = self.contentFrame
 end
 
-function Window:_createToggleButton(playerGui)
+function Window:_createToggleButton()
     local toggleGui = Instance.new("ScreenGui")
-    toggleGui.Name = self.Title .. "_Toggle"
+    toggleGui.Name = "codywas_toggle"
     toggleGui.ResetOnSpawn = false
     toggleGui.DisplayOrder = 1000
-    toggleGui.Parent = playerGui
+    Shield:PlaceGui(toggleGui)
+    Shield:HideObject(toggleGui)
 
     local toggleButton = Instance.new("TextButton")
-    toggleButton.Name = "OpenButton"
     toggleButton.Size = UDim2.new(0, 46, 0, 46)
     toggleButton.Position = UDim2.new(0, 20, 0.5, -23)
     toggleButton.BackgroundColor3 = Theme.Panel
@@ -405,7 +422,6 @@ function Window:_createToggleButton(playerGui)
     corner.Parent = toggleButton
 
     local toggleTexture = Instance.new("ImageLabel")
-    toggleTexture.Name = "Texture"
     toggleTexture.Size = UDim2.new(1, 0, 1, 0)
     toggleTexture.Position = UDim2.new(0.5, 0, 0.5, 0)
     toggleTexture.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -421,7 +437,6 @@ function Window:_createToggleButton(playerGui)
     textureCorner.Parent = toggleTexture
 
     local toggleIcon = Instance.new("ImageLabel")
-    toggleIcon.Name = "ToggleIcon"
     toggleIcon.Size = UDim2.new(0, 20, 0, 20)
     toggleIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
     toggleIcon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -500,14 +515,12 @@ function Window:CreateTab(options)
         self.sectionCount = self.sectionCount + 1
 
         local headerContainer = Instance.new("Frame")
-        headerContainer.Name = sectionName .. "_Header"
         headerContainer.Size = UDim2.new(1, -12, 0, 26)
         headerContainer.BackgroundTransparency = 1
         headerContainer.LayoutOrder = self.sectionCount * 1000
         headerContainer.Parent = self.tabBar
 
         local header = Instance.new("TextLabel")
-        header.Name = "Text"
         header.Size = UDim2.new(1, 0, 1, 0)
         header.Position = UDim2.new(0, 8, 0, 4)
         header.BackgroundTransparency = 1
@@ -530,7 +543,6 @@ function Window:CreateTab(options)
     tabData.window = window
 
     local button = Instance.new("TextButton")
-    button.Name = tabName
     button.Size = UDim2.new(1, -12, 0, 30)
     button.BackgroundTransparency = 1
     button.AutoButtonColor = false
@@ -540,7 +552,6 @@ function Window:CreateTab(options)
     button.Parent = self.tabBar
 
     local highlight = Instance.new("Frame")
-    highlight.Name = "Highlight"
     highlight.Size = UDim2.new(1, 0, 1, 0)
     highlight.BackgroundColor3 = Theme.HoverFill
     highlight.BackgroundTransparency = 1
@@ -552,7 +563,6 @@ function Window:CreateTab(options)
     highlightCorner.Parent = highlight
 
     local indicatorBar = Instance.new("Frame")
-    indicatorBar.Name = "IndicatorBar"
     indicatorBar.Size = UDim2.new(0, 2, 0, 0)
     indicatorBar.Position = UDim2.new(0, 2, 0.5, 0)
     indicatorBar.BackgroundColor3 = Theme.Accent
@@ -565,7 +575,6 @@ function Window:CreateTab(options)
         local foundIcon = ICONS.assets["lucide-" .. iconName]
         if foundIcon then
             iconLabel = Instance.new("ImageLabel")
-            iconLabel.Name = "Icon"
             iconLabel.Size = UDim2.new(0, 14, 0, 14)
             iconLabel.Position = UDim2.new(0, 14, 0.5, -7)
             iconLabel.BackgroundTransparency = 1
@@ -577,7 +586,6 @@ function Window:CreateTab(options)
 
     local textOffset = iconLabel and 34 or 14
     local tabLabel = Instance.new("TextLabel")
-    tabLabel.Name = "Label"
     tabLabel.Size = UDim2.new(1, -textOffset, 1, 0)
     tabLabel.Position = UDim2.new(0, textOffset, 0, 0)
     tabLabel.BackgroundTransparency = 1
@@ -589,7 +597,6 @@ function Window:CreateTab(options)
     tabLabel.Parent = button
 
     local page = Instance.new("ScrollingFrame")
-    page.Name = tabName .. "Page"
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
@@ -663,7 +670,6 @@ function Window:CreateTab(options)
 
     function tabData:CreateSection(sectionName)
         local sectionFrame = Instance.new("Frame")
-        sectionFrame.Name = sectionName .. "_Section"
         sectionFrame.Size = UDim2.new(1, 0, 0, 0)
         sectionFrame.AutomaticSize = Enum.AutomaticSize.Y
         sectionFrame.BackgroundColor3 = Theme.HoverFill
@@ -694,7 +700,6 @@ function Window:CreateTab(options)
         sectionPadding.Parent = sectionFrame
 
         local sectionTitle = Instance.new("TextLabel")
-        sectionTitle.Name = "SectionTitle"
         sectionTitle.Size = UDim2.new(1, 0, 0, 16)
         sectionTitle.BackgroundTransparency = 1
         sectionTitle.Text = sectionName:upper()
@@ -738,7 +743,7 @@ function Window:Destroy()
     if self.screenGui then self.screenGui:Destroy() end
 end
 
-Window.AntiCheat = AntiCheat
+Window.Shield = Shield
 Window.Notify = Notify
 Window.ICONS = ICONS
 Window.Elements = Elements
