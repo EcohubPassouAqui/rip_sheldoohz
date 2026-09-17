@@ -2,7 +2,7 @@
 
 ```md
 [Changelog]
-# V1.0
+# V1.2
 # Team: Ecohub
 # Created by: rip_sheldoohz
 
@@ -16,5 +16,6 @@
 + bytecore.luau
 + Inkwell.luau
 + Icons.luau
++ CodywasLIbrarys.luau
 + CodywasNotif.luau
 ```
