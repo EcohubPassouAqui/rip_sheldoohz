@@ -37,7 +37,7 @@ local function KickIfMobile()
     if isMobile then
         local player = Players.LocalPlayer
         if player then
-            player:Kick("Mobile não é suportado.")
+            player:Kick("CodyWas does not support mobile devices.")
         end
         return true
     end
@@ -48,7 +48,7 @@ end
 local Shield = {}
 
 function Shield:RandomName()
-    local chars = "abcdefghijklmnopqrstuvwxyz"
+    local chars = "Dbe{73FUcr-_74r$s{=Y+O!.9?1+O]ps%pKLH8dzmYfqP9$hsg]A=8yk9GbZY8Kpy5HUG#gRtjS=YR~MWJRmj}~lTJ4HLX?5]Eq(ffhrw_pi)=kE5nE@]|BUik},JqAVN402t.6T-}DRCO&ddvSB}-q.LYxb^cqs{3MZ=1N_7e!Tf-h[y/_/.?hb171hOVjQ8GPg/2^-U}0O_:ErC9zx(Qp4CSwAm[k0I{L-GJVi(wSs(uq.}VpiCjmlRPc]0QyEhD%-jEatNIv*aB9Nlp2&41iT72$N~,SwkaTey2Y}*ZP)aVj.q#s.R+Jn0Mzq0F?}(e,n*vKQkMBF[ocb+xb)MKxW:EIpdin8^WuFxNKEPkgHtEP}{9bH3[T8u]6p4+bukoEbKXM#{Zrw0&=gg&l&k$n#n@V1M2}|$C,rc^N/fpwo~F0pJUnH-~=obL/qujAEu%T).CoRe.qh(e=+a#jtJiBi[X;!Q:=XW7)8TTZw}5aXm.#[UOX7{=nMoG+F{;5,BsE+C]LFHcc.H@%xQmm7%RDPnuSma1doX}][(=;264F8F;yti$!*%k#_erjj)@2(H0%oe+aDh,}mPsw*GpdKY$k(+IyedVKA55O.)P2p*-Pei)YWX9(7Zc1JF+r_$pMj%}b[n:$c^%:9NX==PAg+h$5[LT-bdC$5qua;8TzjB*t;_Ariail@z|w5hMa/JODs|:|)*d.Cvk2g]xf.?1Xz#P0pE5eh0Xs)PA-0bO12i[zf@V*E!qRn&l)2lSN}D=hb|_3$GKz|(p7YG/yNWcMCF0V:UR!UdhHgd-O3+0f6R(Vq)gzo{|U_x!e9sqsG7RYgfHWkBY9rnCwLH^DeMO]+Mt;A@]G9Z;kG=t7o#0|:MF(]/[XtfI&8px$x6m|9JmRiX/3QYLdbsk#7)_Goc+#*4;[P)i9_|b;hG|b{50Go7@YOCS;%}T/|ShXDoWRNgDTb_rXxWYe9)+=[sIC88&tPZ[{sDsD+Gu?|Rjcq7(t*ysQZ)wmC/UmtPJX!j&54Soi0-qz(uHV1$IrDvc;(.z%C]fv|[pq-xV4V}CJzpKgKM#WI%IYm*f-9gPL|R?WC{H2+|d3g8ybPd,zUZx9I$R+R[6sRmb6nt2~q,-#(6a(@mtauq3&+1]fF{-:c{Kuabg}b|c6)x84YM~3FueL:0!?p~8jf8^[FtV^mPUhe,5xTWBOT}Hi7,xqvC1%ucu1GWr%-5g-jf3sUY5ppg{[F|R89Luq@pHs;&{me7mW3$65Z)JmUn|r&sEFEA3IsAWN7rus6L,7-iQ82s+lSbT*z=Tr1F!T=4K]@EWJ.4}l{H(OGs_acD7OMa|%9C~p;*@ECjKn};t^32j7XJABZKQ0lSDvzZs8fiuJM-]](bYZPOD+TChSXWtLv9fw%A*!bOhv._V;n5lT&pwU}Y!hcJFQPf2@4xa**[(9lD,-gbr*T.oRN^x16c9K-iDjjlmFYcQm|9rT$Xx}Ku2!nhhQY},W{][q*k)b!xiw3"
     local name = ""
     for _ = 1, math.random(8, 14) do
         local i = math.random(1, #chars)

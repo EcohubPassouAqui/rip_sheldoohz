@@ -20,10 +20,10 @@ Elements.Register("Paragraph", function(section, options)
         pcall(function() Notify({ Title = "CodyWas | Paragraph", Description = msg, Duration = 5 }) end)
     end
 
-    local title = options.title       or options.Name        or ""
+    local title = options.title or options.Name or ""
     local description = options.description or options.Description or ""
-    local thumbnail = options.thumbnail   or options.Thumbnail   or nil
-    local disabled = options.disabled    or false
+    local thumbnail = options.thumbnail or options.Thumbnail or nil
+    local disabled = options.disabled or false
 
     local data = {
         disabled = disabled,
