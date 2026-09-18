@@ -1,5 +1,6 @@
 -- // Serviço
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
@@ -29,6 +30,19 @@ end)
 -- // Notify
 local CodywasNotif = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/notifications/CodywasNotif.luau"))()
 local Notify = CodywasNotif.Notify
+
+-- // Mobile kick
+local function KickIfMobile()
+    local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+    if isMobile then
+        local player = Players.LocalPlayer
+        if player then
+            player:Kick("Mobile não é suportado.")
+        end
+        return true
+    end
+    return false
+end
 
 -- // Shield
 local Shield = {}
@@ -154,8 +168,15 @@ end
 local Elements = {}
 Elements.List = {}
 
+-- registry de elements para search (label -> frame)
+Elements._searchRegistry = {}
+
 function Elements.Register(name, constructor)
     Elements.List[name] = constructor
+end
+
+function Elements.RegisterSearchEntry(labelText, frame)
+    table.insert(Elements._searchRegistry, { label = labelText:lower(), frame = frame })
 end
 
 -- // Window
@@ -163,6 +184,9 @@ local Window = {}
 Window.__index = Window
 
 function Window.new(title, subtitle)
+    -- kick celular antes de qualquer coisa
+    if KickIfMobile() then return {} end
+
     local self = setmetatable({}, Window)
     self.Title = title or "UILib"
     self.Subtitle = subtitle or "by rip_sheldoohz"
@@ -312,37 +336,49 @@ function Window:_createTopBar()
     self.searchBox.Parent = searchContainer
 
     table.insert(self.connections, self.searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        self:_filterTabs(self.searchBox.Text)
+        self:_filterElements(self.searchBox.Text)
     end))
 end
 
-function Window:_filterTabs(query)
-    query = query:lower()
-    local sectionHasVisible = {}
-    local firstVisibleTab = nil
+-- filtra elements pelo label, mostra todos quando vazio
+function Window:_filterElements(query)
+    query = query:lower():gsub("^%s+", ""):gsub("%s+$", "")
 
+    if query == "" then
+        for _, entry in ipairs(Elements._searchRegistry) do
+            if entry.frame then
+                entry.frame.Visible = true
+            end
+        end
+        -- restaura tab atual visível
+        if self.selectedTab then
+            for _, tab in ipairs(self.tabs) do
+                tab.page.Visible = (tab == self.selectedTab)
+            end
+        end
+        return
+    end
+
+    -- ao pesquisar, mostra todas as pages para os elements ficarem acessíveis
     for _, tab in ipairs(self.tabs) do
-        local visible = query == "" or string.find(tab.name:lower(), query, 1, true) ~= nil
-        tab.button.Visible = visible
-        if visible then
-            if not firstVisibleTab then firstVisibleTab = tab end
-            if tab.section then sectionHasVisible[tab.section] = true end
-        else
-            tab.page.Visible = false
+        tab.page.Visible = true
+    end
+
+    local matched = false
+    for _, entry in ipairs(Elements._searchRegistry) do
+        if entry.frame then
+            local visible = string.find(entry.label, query, 1, true) ~= nil
+            entry.frame.Visible = visible
+            if visible then matched = true end
         end
     end
 
-    for sectionName, header in pairs(self.sections) do
-        header.Visible = sectionHasVisible[sectionName] == true
-    end
-
-    if firstVisibleTab then
-        if self.selectedTab and not firstVisibleTab.button.Visible then
-            self.selectedTab.updateVisuals(false)
-            self.selectedTab = firstVisibleTab
-            self.selectedTab.updateVisuals(true)
-        elseif self.selectedTab and self.selectedTab.button.Visible then
-            self.selectedTab.page.Visible = true
+    if not matched then
+        -- nada achado, esconde tudo
+        for _, entry in ipairs(Elements._searchRegistry) do
+            if entry.frame then
+                entry.frame.Visible = false
+            end
         end
     end
 end
@@ -624,7 +660,11 @@ function Window:CreateTab(options)
 
     local function updateTabVisuals(isSelected)
         tabData.selected = isSelected
-        page.Visible = isSelected and button.Visible
+        -- só muda visibilidade se não há search ativa
+        local searchActive = window.searchBox and window.searchBox.Text ~= ""
+        if not searchActive then
+            page.Visible = isSelected and button.Visible
+        end
         tabLabel.TextColor3 = isSelected and Theme.TextPrimary or Theme.TextSecondary
         tabLabel.Font = isSelected and FONT_BOLD or FONT
         if iconLabel then
@@ -653,6 +693,10 @@ function Window:CreateTab(options)
     end))
 
     table.insert(self.connections, button.MouseButton1Click:Connect(function()
+        -- ao clicar numa tab, limpa o search e restaura estado normal
+        if window.searchBox then
+            window.searchBox.Text = ""
+        end
         if self.selectedTab and self.selectedTab ~= tabData then
             self.selectedTab.updateVisuals(false)
         end
@@ -714,20 +758,33 @@ function Window:CreateTab(options)
         sectionData.frame = sectionFrame
         sectionData.window = window
 
+        -- wrapper que registra o element no search registry após criação
+        local function wrapElement(createFn, opts)
+            local elementFrame = createFn(sectionData, opts)
+            local label = (type(opts) == "table" and (opts.name or opts.title or opts.text or opts.label)) or tostring(opts) or ""
+            if elementFrame and label ~= "" then
+                Elements.RegisterSearchEntry(label, elementFrame)
+            end
+            return elementFrame
+        end
+
         function sectionData:CreateToggle(opts)
-            return Elements.List["Checkbox"](self, opts)
+            return wrapElement(Elements.List["Checkbox"], opts)
         end
         function sectionData:CreateButton(opts)
-            return Elements.List["Button"](self, opts)
+            return wrapElement(Elements.List["Button"], opts)
         end
         function sectionData:CreateSlider(opts)
-            return Elements.List["Slider"](self, opts)
+            return wrapElement(Elements.List["Slider"], opts)
         end
         function sectionData:CreateDropdown(opts)
-            return Elements.List["Dropdown"](self, opts)
+            return wrapElement(Elements.List["Dropdown"], opts)
         end
         function sectionData:CreateColorPicker(opts)
-            return Elements.List["ColorPicker"](self, opts)
+            return wrapElement(Elements.List["ColorPicker"], opts)
+        end
+        function sectionData:CreateParagraph(opts)
+            return wrapElement(Elements.List["Paragraph"], opts)
         end
 
         return sectionData

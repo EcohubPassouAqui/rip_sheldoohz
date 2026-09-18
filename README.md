@@ -10,7 +10,14 @@
 # Nothing yet.
 
 [Librarys]
-# Nothing yet.
++ New Elements
+    + Toggle
+    + Button
+    + Slider
+    + Dropdown
+    + Colorpick
+    + Paragraph
+* Shield Improvements
 
 [New Files]
 + bytecore.luau
