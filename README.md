@@ -7,22 +7,16 @@
 # Created by: rip_sheldoohz
 
 [Updates]
-# Nothing yet.
+* bytecore
+    + Function Improvements
+    + API Improvements
+    + New Bypass
+    - Inkwell Removed
+    + New Notification
 
 [Librarys]
-+ New Elements
-    + Toggle
-    + Button
-    + Slider
-    + Dropdown
-    + Colorpick
-    + Paragraph
-* Shield Improvements
++ Element Improvements
 
 [New Files]
-+ bytecore.luau
-+ Inkwell.luau
-+ Icons.luau
-+ CodywasLIbrarys.luau
-+ CodywasNotif.luau
+# Nothing
 ```

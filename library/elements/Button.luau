@@ -1,5 +1,7 @@
 -- // Button
 Elements.Register("Button", function(section, options)
+    options = type(options) == "table" and options or {}
+
     local COLORS = {
         Background = Color3.fromRGB(20, 20, 20),
         BackgroundHover = Color3.fromRGB(32, 32, 32),
@@ -14,6 +16,21 @@ Elements.Register("Button", function(section, options)
     local DESC_SIZE = 11
     local WORD_MAX = 20
     local BASE_H = 30
+    local TWEEN_INFO = TweenInfo.new(0.1)
+
+    local tweenService = TweenService or game:GetService("TweenService")
+    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
+    local fontRegular = FONT or Enum.Font.SourceSans
+
+    local connections = {}
+    local destroyed = false
+    local hovering = false
+
+    local function connect(signal, fn)
+        local conn = signal:Connect(fn)
+        table.insert(connections, conn)
+        return conn
+    end
 
     local function warnNotify(msg)
         pcall(function()
@@ -22,24 +39,30 @@ Elements.Register("Button", function(section, options)
     end
 
     local function breakLongWords(text, maxLen)
-        local result = {}
-        for word in text:gmatch("%S+") do
-            while #word > maxLen do
-                table.insert(result, word:sub(1, maxLen))
-                word = word:sub(maxLen + 1)
+        text = tostring(text or "")
+        local lines = {}
+        for line in (text .. "\n"):gmatch("(.-)\n") do
+            local result = {}
+            for word in line:gmatch("%S+") do
+                while #word > maxLen do
+                    table.insert(result, word:sub(1, maxLen))
+                    word = word:sub(maxLen + 1)
+                end
+                table.insert(result, word)
             end
-            table.insert(result, word)
+            table.insert(lines, table.concat(result, " "))
         end
-        return table.concat(result, " ")
+        return table.concat(lines, "\n")
     end
 
-    local title = options.title or options.Name or "Button"
-    local description = options.description or ""
-    local disabled = options.disabled or false
-    local callback = options.callback or options.Callback or function() end
+    local title = tostring(options.title or options.Name or "Button")
+    local description = tostring(options.description or "")
+    local disabled = options.disabled == true
+    local callback = options.callback or options.Callback
 
-    local displayDescription = breakLongWords(description, WORD_MAX)
-    local hasDescription = description ~= ""
+    if type(callback) ~= "function" then
+        callback = function() end
+    end
 
     local data = {
         disabled = disabled,
@@ -50,6 +73,7 @@ Elements.Register("Button", function(section, options)
     container.Size = UDim2.new(1, 0, 0, BASE_H)
     container.BackgroundColor3 = COLORS.Background
     container.BorderSizePixel = 0
+    container.ClipsDescendants = true
     container.Parent = section.frame
 
     local containerCorner = Instance.new("UICorner")
@@ -59,21 +83,15 @@ Elements.Register("Button", function(section, options)
     local containerStroke = Instance.new("UIStroke")
     containerStroke.Color = COLORS.Border
     containerStroke.Thickness = 1
+    containerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     containerStroke.Parent = container
 
-    local clickArea = Instance.new("TextButton")
-    clickArea.Name = "ClickArea"
-    clickArea.Size = UDim2.new(1, 0, 1, 0)
-    clickArea.BackgroundTransparency = 1
-    clickArea.Text = ""
-    clickArea.AutoButtonColor = false
-    clickArea.Selectable = false
-    clickArea.Parent = container
-
     local textFrame = Instance.new("Frame")
+    textFrame.Name = "TextFrame"
     textFrame.Size = UDim2.new(1, -20, 1, 0)
     textFrame.Position = UDim2.new(0, 10, 0, 0)
     textFrame.BackgroundTransparency = 1
+    textFrame.ZIndex = 1
     textFrame.Parent = container
 
     local textLayout = Instance.new("UIListLayout")
@@ -85,46 +103,74 @@ Elements.Register("Button", function(section, options)
 
     local label = Instance.new("TextLabel")
     label.Name = "Title"
-    label.Size = UDim2.new(1, 0, 0, 16)
+    label.Size = UDim2.new(1, 0, 0, TITLE_SIZE + 3)
     label.BackgroundTransparency = 1
     label.Text = title
     label.TextColor3 = disabled and COLORS.TextDisabled or COLORS.TextActive
     label.TextSize = TITLE_SIZE
-    label.Font = FONT_BOLD or Enum.Font.SourceSansBold
+    label.Font = fontBold
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextYAlignment = Enum.TextYAlignment.Center
+    label.TextTruncate = Enum.TextTruncate.AtEnd
     label.LayoutOrder = 0
+    label.ZIndex = 1
     label.Parent = textFrame
 
     local descLabel
-    if hasDescription then
+
+    local function createDescription(text)
         descLabel = Instance.new("TextLabel")
         descLabel.Name = "Description"
         descLabel.Size = UDim2.new(1, 0, 0, 0)
         descLabel.AutomaticSize = Enum.AutomaticSize.Y
         descLabel.BackgroundTransparency = 1
-        descLabel.Text = displayDescription
+        descLabel.Text = breakLongWords(text, WORD_MAX)
         descLabel.TextColor3 = COLORS.DescriptionText
         descLabel.TextSize = DESC_SIZE
-        descLabel.Font = FONT or Enum.Font.SourceSans
+        descLabel.Font = fontRegular
         descLabel.TextXAlignment = Enum.TextXAlignment.Left
         descLabel.TextYAlignment = Enum.TextYAlignment.Top
         descLabel.TextWrapped = true
         descLabel.LineHeight = 1.15
         descLabel.LayoutOrder = 1
+        descLabel.ZIndex = 1
         descLabel.Parent = textFrame
     end
 
+    local clickArea = Instance.new("TextButton")
+    clickArea.Name = "ClickArea"
+    clickArea.Size = UDim2.new(1, 0, 1, 0)
+    clickArea.BackgroundTransparency = 1
+    clickArea.Text = ""
+    clickArea.AutoButtonColor = false
+    clickArea.Selectable = false
+    clickArea.ZIndex = 2
+    clickArea.Parent = container
+
     local function resizeContainer()
-        if not hasDescription then return end
+        if destroyed then return end
+        if not descLabel then
+            container.Size = UDim2.new(1, 0, 0, BASE_H)
+            return
+        end
         local contentH = textLayout.AbsoluteContentSize.Y
         local totalH = math.max(contentH + 14, BASE_H)
         container.Size = UDim2.new(1, 0, 0, totalH)
     end
 
+    local function tweenHover(state)
+        if destroyed then return end
+        local bg = state and COLORS.BackgroundHover or COLORS.Background
+        local border = state and COLORS.BorderHover or COLORS.Border
+        tweenService:Create(container, TWEEN_INFO, { BackgroundColor3 = bg }):Play()
+        tweenService:Create(containerStroke, TWEEN_INFO, { Color = border }):Play()
+    end
+
     local function updateVisuals()
+        if destroyed then return end
         label.TextColor3 = data.disabled and COLORS.TextDisabled or COLORS.TextActive
         clickArea.Active = not data.disabled
+        tweenHover(hovering and not data.disabled)
     end
 
     local function fireCallback()
@@ -135,46 +181,60 @@ Elements.Register("Button", function(section, options)
     end
 
     local function press()
-        if data.disabled then return end
+        if destroyed or data.disabled then return end
         fireCallback()
     end
 
-    clickArea.MouseButton1Click:Connect(press)
+    connect(clickArea.MouseButton1Click, press)
 
-    clickArea.MouseEnter:Connect(function()
+    connect(clickArea.MouseEnter, function()
+        hovering = true
         if data.disabled then return end
-        TweenService:Create(container, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.BackgroundHover }):Play()
-        TweenService:Create(containerStroke, TweenInfo.new(0.1), { Color = COLORS.BorderHover }):Play()
+        tweenHover(true)
     end)
 
-    clickArea.MouseLeave:Connect(function()
+    connect(clickArea.MouseLeave, function()
+        hovering = false
         if data.disabled then return end
-        TweenService:Create(container, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.Background }):Play()
-        TweenService:Create(containerStroke, TweenInfo.new(0.1), { Color = COLORS.Border }):Play()
+        tweenHover(false)
     end)
 
-    if hasDescription then
-        textLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeContainer)
-        resizeContainer()
+    connect(textLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
+
+    if description ~= "" then
+        createDescription(description)
     end
 
+    resizeContainer()
     updateVisuals()
 
     function data:SetDisabled(value)
-        data.disabled = value
+        if destroyed then return end
+        data.disabled = value == true
         updateVisuals()
     end
 
     function data:SetTitle(newTitle)
-        label.Text = newTitle
+        if destroyed then return end
+        label.Text = tostring(newTitle or "")
     end
 
     function data:SetDescription(newDesc)
-        if not descLabel then
-            warnNotify(("Button '%s': sem descricao inicial."):format(title))
+        if destroyed then return end
+        newDesc = tostring(newDesc or "")
+        if newDesc == "" then
+            if descLabel then
+                descLabel:Destroy()
+                descLabel = nil
+            end
+            resizeContainer()
             return
         end
-        descLabel.Text = breakLongWords(newDesc, WORD_MAX)
+        if not descLabel then
+            createDescription(newDesc)
+        else
+            descLabel.Text = breakLongWords(newDesc, WORD_MAX)
+        end
         resizeContainer()
     end
 
@@ -183,6 +243,12 @@ Elements.Register("Button", function(section, options)
     end
 
     function data:Destroy()
+        if destroyed then return end
+        destroyed = true
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
+        table.clear(connections)
         container:Destroy()
     end
 

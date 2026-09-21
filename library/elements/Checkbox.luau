@@ -1,5 +1,7 @@
 -- // CheckBox
 Elements.Register("Checkbox", function(section, options)
+    options = type(options) == "table" and options or {}
+
     local COLORS = {
         Active = Color3.fromRGB(255, 255, 255),
         Inactive = Color3.fromRGB(20, 20, 20),
@@ -26,22 +28,53 @@ Elements.Register("Checkbox", function(section, options)
     local WORD_MAX = 20
     local BASE_H = 36
 
+    local tweenService = TweenService or game:GetService("TweenService")
+    local userInputService = UserInputService or game:GetService("UserInputService")
+    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
+    local fontRegular = FONT or Enum.Font.SourceSans
+
+    local TI_FAST = TweenInfo.new(0.1)
+    local TI_STD = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+    local connections = {}
+    local destroyed = false
+    local hovering = false
+    local listeningConnection
+    local listenStartedAt = 0
+
+    local function connect(signal, fn)
+        local conn = signal:Connect(fn)
+        table.insert(connections, conn)
+        return conn
+    end
+
     local function warnNotify(msg)
         pcall(function()
             Notify({ Title = "CodyWas | Checkbox", Description = msg, Duration = 5 })
         end)
     end
 
+    local function infoNotify(msg)
+        pcall(function()
+            Notify({ Title = "CodyWas | KeyBind", Description = msg, Duration = 3 })
+        end)
+    end
+
     local function breakLongWords(text, maxLen)
-        local result = {}
-        for word in text:gmatch("%S+") do
-            while #word > maxLen do
-                table.insert(result, word:sub(1, maxLen))
-                word = word:sub(maxLen + 1)
+        text = tostring(text or "")
+        local lines = {}
+        for line in (text .. "\n"):gmatch("(.-)\n") do
+            local result = {}
+            for word in line:gmatch("%S+") do
+                while #word > maxLen do
+                    table.insert(result, word:sub(1, maxLen))
+                    word = word:sub(maxLen + 1)
+                end
+                table.insert(result, word)
             end
-            table.insert(result, word)
+            table.insert(lines, table.concat(result, " "))
         end
-        return table.concat(result, " ")
+        return table.concat(lines, "\n")
     end
 
     local KEY_NAMES = {
@@ -91,38 +124,42 @@ Elements.Register("Checkbox", function(section, options)
         return KEY_NAMES[binding] or tostring(binding):match("%.(%w+)$") or "?"
     end
 
-    local function isKeyCode(binding)
+    local function isValidBinding(binding)
         if typeof(binding) ~= "EnumItem" then return false end
-        return tostring(binding.EnumType) == "KeyCode"
-    end
-
-    local function isMouseButton(binding)
-        if typeof(binding) ~= "EnumItem" then return false end
-        local t = tostring(binding.EnumType)
-        return t == "UserInputType"
+        return binding.EnumType == Enum.KeyCode or binding.EnumType == Enum.UserInputType
     end
 
     local function matchInput(binding, input)
-        if isKeyCode(binding) then
-            if input.UserInputType ~= Enum.UserInputType.Keyboard then return false end
-            return tostring(input.KeyCode) == tostring(binding)
-        elseif isMouseButton(binding) then
-            return tostring(input.UserInputType) == tostring(binding)
+        if typeof(binding) ~= "EnumItem" then return false end
+        if binding.EnumType == Enum.KeyCode then
+            return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == binding
+        elseif binding.EnumType == Enum.UserInputType then
+            return input.UserInputType == binding
         end
         return false
     end
 
-    local title = options.title or options.Name or "Checkbox"
-    local description = options.description or ""
-    local default = options.default or options.Default or false
-    local disabled = options.disabled or false
-    local callback = options.callback or options.Callback or function() end
+    local title = tostring(options.title or options.Name or "Checkbox")
+    local description = tostring(options.description or "")
+    local default = (options.default or options.Default) == true
+    local disabled = options.disabled == true
+    local callback = options.callback or options.Callback
     local keybind = options.keybind
     local keybindCb = options.keybindCallback
 
-    local displayDescription = breakLongWords(description, WORD_MAX)
-    local hasDescription = description ~= ""
-    local hasKeybind = keybind ~= nil
+    if type(callback) ~= "function" then
+        callback = function() end
+    end
+
+    if type(keybindCb) ~= "function" then
+        keybindCb = nil
+    end
+
+    if keybind ~= nil and not isValidBinding(keybind) then
+        keybind = nil
+    end
+
+    local hasKeybind = options.keybind ~= nil
 
     local data = {
         state = default,
@@ -152,6 +189,7 @@ Elements.Register("Checkbox", function(section, options)
     clickArea.Parent = container
 
     local textFrame = Instance.new("Frame")
+    textFrame.Name = "TextFrame"
     textFrame.Size = UDim2.new(1, 0, 1, 0)
     textFrame.BackgroundTransparency = 1
     textFrame.Parent = clickArea
@@ -165,28 +203,30 @@ Elements.Register("Checkbox", function(section, options)
 
     local label = Instance.new("TextLabel")
     label.Name = "Title"
-    label.Size = UDim2.new(1, 0, 0, 16)
+    label.Size = UDim2.new(1, 0, 0, TITLE_SIZE + 3)
     label.BackgroundTransparency = 1
     label.Text = title
     label.TextColor3 = default and COLORS.TextActive or COLORS.TextInactive
     label.TextSize = TITLE_SIZE
-    label.Font = FONT_BOLD or Enum.Font.SourceSansBold
+    label.Font = fontBold
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextYAlignment = Enum.TextYAlignment.Center
+    label.TextTruncate = Enum.TextTruncate.AtEnd
     label.LayoutOrder = 0
     label.Parent = textFrame
 
     local descLabel
-    if hasDescription then
+
+    local function createDescription(text)
         descLabel = Instance.new("TextLabel")
         descLabel.Name = "Description"
         descLabel.Size = UDim2.new(1, 0, 0, 0)
         descLabel.AutomaticSize = Enum.AutomaticSize.Y
         descLabel.BackgroundTransparency = 1
-        descLabel.Text = displayDescription
+        descLabel.Text = breakLongWords(text, WORD_MAX)
         descLabel.TextColor3 = COLORS.DescriptionText
         descLabel.TextSize = DESC_SIZE
-        descLabel.Font = FONT or Enum.Font.SourceSans
+        descLabel.Font = fontRegular
         descLabel.TextXAlignment = Enum.TextXAlignment.Left
         descLabel.TextYAlignment = Enum.TextYAlignment.Top
         descLabel.TextWrapped = true
@@ -211,9 +251,11 @@ Elements.Register("Checkbox", function(section, options)
     local boxStroke = Instance.new("UIStroke")
     boxStroke.Color = default and COLORS.Active or COLORS.Line
     boxStroke.Thickness = 1.2
+    boxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     boxStroke.Parent = box
 
     local checkIcon = Instance.new("ImageLabel")
+    checkIcon.Name = "Check"
     checkIcon.Size = UDim2.new(0, 12, 0, 12)
     checkIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
     checkIcon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -235,6 +277,7 @@ Elements.Register("Checkbox", function(section, options)
         keyBtn.BorderSizePixel = 0
         keyBtn.Text = ""
         keyBtn.AutoButtonColor = false
+        keyBtn.Selectable = false
         keyBtn.Parent = container
 
         local keyCorner = Instance.new("UICorner")
@@ -248,25 +291,33 @@ Elements.Register("Checkbox", function(section, options)
         keyStroke.Parent = keyBtn
 
         keyLabel = Instance.new("TextLabel")
+        keyLabel.Name = "KeyLabel"
         keyLabel.Size = UDim2.new(1, 0, 1, 0)
         keyLabel.BackgroundTransparency = 1
         keyLabel.Text = getKeyName(data.keybind)
         keyLabel.TextColor3 = COLORS.KeyBindText
         keyLabel.TextSize = KEY_SIZE
-        keyLabel.Font = FONT_BOLD or Enum.Font.SourceSansBold
+        keyLabel.Font = fontBold
         keyLabel.TextXAlignment = Enum.TextXAlignment.Center
         keyLabel.TextYAlignment = Enum.TextYAlignment.Center
+        keyLabel.TextTruncate = Enum.TextTruncate.AtEnd
         keyLabel.Parent = keyBtn
     end
 
     local function resizeContainer()
-        if not hasDescription then return end
+        if destroyed then return end
+        if not descLabel then
+            container.Size = UDim2.new(1, 0, 0, BASE_H)
+            return
+        end
         local contentH = textLayout.AbsoluteContentSize.Y
         local totalH = math.max(contentH + 14, BASE_H)
         container.Size = UDim2.new(1, 0, 0, totalH)
     end
 
     local function updateVisuals(animate)
+        if destroyed then return end
+
         local boxColor = data.state and COLORS.Active or COLORS.Inactive
         local strokeColor = data.state and COLORS.Active or COLORS.Line
         local checkT = data.state and 0 or 1
@@ -276,23 +327,39 @@ Elements.Register("Checkbox", function(section, options)
             boxColor = COLORS.Inactive
             strokeColor = COLORS.Line
             textColor = COLORS.TextDisabled
+            checkT = 1
         end
 
         if animate then
-            local ti = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            TweenService:Create(box, ti, { BackgroundColor3 = boxColor }):Play()
-            TweenService:Create(boxStroke, ti, { Color = strokeColor }):Play()
-            TweenService:Create(checkIcon, ti, { ImageTransparency = data.disabled and 1 or checkT, ImageColor3 = COLORS.Icon }):Play()
-            TweenService:Create(label, ti, { TextColor3 = textColor }):Play()
+            tweenService:Create(box, TI_STD, { BackgroundColor3 = boxColor }):Play()
+            tweenService:Create(boxStroke, TI_STD, { Color = strokeColor, Thickness = 1.2 }):Play()
+            tweenService:Create(checkIcon, TI_STD, { ImageTransparency = checkT, ImageColor3 = COLORS.Icon }):Play()
+            tweenService:Create(label, TI_STD, { TextColor3 = textColor }):Play()
         else
             box.BackgroundColor3 = boxColor
             boxStroke.Color = strokeColor
-            checkIcon.ImageTransparency = data.disabled and 1 or checkT
+            boxStroke.Thickness = 1.2
+            checkIcon.ImageTransparency = checkT
             checkIcon.ImageColor3 = COLORS.Icon
             label.TextColor3 = textColor
         end
 
         clickArea.Active = not data.disabled
+    end
+
+    local function applyHover(state)
+        if destroyed or data.disabled then return end
+        if state then
+            tweenService:Create(boxStroke, TI_STD, { Color = COLORS.Active, Thickness = 1.4 }):Play()
+            if not data.state then
+                tweenService:Create(checkIcon, TI_STD, { ImageTransparency = 0.55, ImageColor3 = COLORS.Active }):Play()
+            end
+        else
+            tweenService:Create(boxStroke, TI_STD, { Color = data.state and COLORS.Active or COLORS.Line, Thickness = 1.2 }):Play()
+            if not data.state then
+                tweenService:Create(checkIcon, TI_STD, { ImageTransparency = 1, ImageColor3 = COLORS.Icon }):Play()
+            end
+        end
     end
 
     local function fireCallback(value)
@@ -303,35 +370,53 @@ Elements.Register("Checkbox", function(section, options)
     end
 
     local function fireKeybindCallback(value)
-        if keybindCb then
-            local ok, err = pcall(keybindCb, value)
-            if not ok then
-                warnNotify(("Checkbox '%s' (keybind): %s"):format(title, tostring(err)))
-            end
+        if not keybindCb then return end
+        local ok, err = pcall(keybindCb, value)
+        if not ok then
+            warnNotify(("Checkbox '%s' (keybind): %s"):format(title, tostring(err)))
         end
     end
 
     local function toggle()
-        if data.disabled then return end
+        if destroyed or data.disabled then return end
         data.state = not data.state
         updateVisuals(true)
+        if hovering then applyHover(true) end
         fireCallback(data.state)
     end
 
-    local listeningConnection
-    local function enterListenMode()
-        if not hasKeybind or data.disabled or data.listening then return end
-        data.listening = true
+    local function resetKeyVisual()
+        if not keyBtn then return end
+        tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindBg }):Play()
+        tweenService:Create(keyStroke, TI_FAST, { Color = COLORS.KeyBindBorder }):Play()
+        keyLabel.Text = getKeyName(data.keybind)
+        keyLabel.TextColor3 = COLORS.KeyBindText
+    end
 
-        TweenService:Create(keyBtn, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.KeyBindListening }):Play()
-        TweenService:Create(keyStroke, TweenInfo.new(0.1), { Color = COLORS.KeyBindListenText }):Play()
+    local function stopListening()
+        if listeningConnection then
+            listeningConnection:Disconnect()
+            listeningConnection = nil
+        end
+        data.listening = false
+        resetKeyVisual()
+    end
+
+    local function enterListenMode()
+        if destroyed or not hasKeybind or data.disabled or data.listening then return end
+        data.listening = true
+        listenStartedAt = os.clock()
+
+        tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindListening }):Play()
+        tweenService:Create(keyStroke, TI_FAST, { Color = COLORS.KeyBindListenText }):Play()
         keyLabel.Text = "..."
         keyLabel.TextColor3 = COLORS.KeyBindListenText
 
-        listeningConnection = UserInputService.InputBegan:Connect(function(input, gp)
-            if gp then return end
+        listeningConnection = userInputService.InputBegan:Connect(function(input)
+            if destroyed or not data.listening then return end
+            if os.clock() - listenStartedAt < 0.15 then return end
 
-            local newBind = nil
+            local newBind
 
             if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.MouseButton2
@@ -340,14 +425,8 @@ Elements.Register("Checkbox", function(section, options)
             elseif input.UserInputType == Enum.UserInputType.Keyboard then
                 if input.KeyCode == Enum.KeyCode.Escape then
                     data.keybind = nil
-                    data.listening = false
-                    listeningConnection:Disconnect()
-                    listeningConnection = nil
-                    TweenService:Create(keyBtn, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.KeyBindBg }):Play()
-                    TweenService:Create(keyStroke, TweenInfo.new(0.1), { Color = COLORS.KeyBindBorder }):Play()
-                    keyLabel.Text = "None"
-                    keyLabel.TextColor3 = COLORS.KeyBindText
-                    Notify({ Title = "CodyWas | KeyBind", Description = ("Bind de '%s' removido."):format(title), Duration = 3 })
+                    stopListening()
+                    infoNotify(("Bind de '%s' removido."):format(title))
                     return
                 end
                 newBind = input.KeyCode
@@ -355,26 +434,15 @@ Elements.Register("Checkbox", function(section, options)
 
             if newBind then
                 data.keybind = newBind
-                data.listening = false
-                listeningConnection:Disconnect()
-                listeningConnection = nil
-                TweenService:Create(keyBtn, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.KeyBindBg }):Play()
-                TweenService:Create(keyStroke, TweenInfo.new(0.1), { Color = COLORS.KeyBindBorder }):Play()
-                keyLabel.Text = getKeyName(newBind)
-                keyLabel.TextColor3 = COLORS.KeyBindText
-                Notify({
-                    Title = "CodyWas | KeyBind",
-                    Description = ("'%s' -> %s"):format(title, getKeyName(newBind)),
-                    Duration = 3
-                })
+                stopListening()
+                infoNotify(("'%s' -> %s"):format(title, getKeyName(newBind)))
             end
         end)
     end
 
-    local keyTriggerConnection
     if hasKeybind then
-        keyTriggerConnection = UserInputService.InputBegan:Connect(function(input, gp)
-            if gp or data.disabled or data.listening then return end
+        connect(userInputService.InputBegan, function(input, gp)
+            if destroyed or gp or data.disabled or data.listening then return end
             if not data.keybind then return end
             if matchInput(data.keybind, input) then
                 toggle()
@@ -383,49 +451,46 @@ Elements.Register("Checkbox", function(section, options)
         end)
     end
 
-    clickArea.MouseButton1Click:Connect(toggle)
+    connect(clickArea.MouseButton1Click, toggle)
 
-    clickArea.MouseEnter:Connect(function()
-        if data.disabled then return end
-        local ti = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        TweenService:Create(boxStroke, ti, { Color = COLORS.Active, Thickness = 1.4 }):Play()
-        if not data.state then
-            TweenService:Create(checkIcon, ti, { ImageTransparency = 0.55, ImageColor3 = COLORS.Active }):Play()
-        end
+    connect(clickArea.MouseEnter, function()
+        hovering = true
+        applyHover(true)
     end)
 
-    clickArea.MouseLeave:Connect(function()
-        if data.disabled then return end
-        local ti = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        TweenService:Create(boxStroke, ti, { Color = data.state and COLORS.Active or COLORS.Line, Thickness = 1.2 }):Play()
-        if not data.state then
-            TweenService:Create(checkIcon, ti, { ImageTransparency = 1, ImageColor3 = COLORS.Icon }):Play()
-        end
+    connect(clickArea.MouseLeave, function()
+        hovering = false
+        applyHover(false)
     end)
 
     if hasKeybind then
-        keyBtn.MouseButton1Click:Connect(enterListenMode)
+        connect(keyBtn.MouseButton1Click, enterListenMode)
 
-        keyBtn.MouseEnter:Connect(function()
+        connect(keyBtn.MouseEnter, function()
             if data.disabled or data.listening then return end
-            TweenService:Create(keyBtn, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.KeyBindHover }):Play()
+            tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindHover }):Play()
         end)
 
-        keyBtn.MouseLeave:Connect(function()
+        connect(keyBtn.MouseLeave, function()
             if data.listening then return end
-            TweenService:Create(keyBtn, TweenInfo.new(0.1), { BackgroundColor3 = COLORS.KeyBindBg }):Play()
+            tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindBg }):Play()
         end)
     end
 
-    if hasDescription then
-        textLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeContainer)
-        resizeContainer()
+    connect(textLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
+
+    if description ~= "" then
+        createDescription(description)
     end
 
+    resizeContainer()
     updateVisuals(false)
     if default then fireCallback(default) end
 
     function data:Set(value)
+        if destroyed then return end
+        value = value == true
+        if data.state == value then return end
         data.state = value
         updateVisuals(true)
         fireCallback(value)
@@ -440,26 +505,49 @@ Elements.Register("Checkbox", function(section, options)
     end
 
     function data:SetDisabled(value)
-        data.disabled = value
+        if destroyed then return end
+        data.disabled = value == true
+        if data.disabled and data.listening then
+            stopListening()
+        end
         updateVisuals(true)
+        if hovering then applyHover(true) end
     end
 
     function data:SetTitle(newTitle)
-        label.Text = newTitle
+        if destroyed then return end
+        label.Text = tostring(newTitle or "")
     end
 
     function data:SetDescription(newDesc)
-        if not descLabel then
-            warnNotify(("Checkbox '%s': sem descricao inicial."):format(title))
+        if destroyed then return end
+        newDesc = tostring(newDesc or "")
+        if newDesc == "" then
+            if descLabel then
+                descLabel:Destroy()
+                descLabel = nil
+            end
+            resizeContainer()
             return
         end
-        descLabel.Text = breakLongWords(newDesc, WORD_MAX)
+        if not descLabel then
+            createDescription(newDesc)
+        else
+            descLabel.Text = breakLongWords(newDesc, WORD_MAX)
+        end
         resizeContainer()
     end
 
     function data:SetKeybind(newBind)
+        if destroyed then return end
+        if newBind ~= nil and not isValidBinding(newBind) then
+            warnNotify(("Checkbox '%s': keybind invalido."):format(title))
+            return
+        end
         data.keybind = newBind
-        if keyLabel then
+        if data.listening then
+            stopListening()
+        elseif keyLabel then
             keyLabel.Text = getKeyName(newBind)
         end
     end
@@ -469,13 +557,26 @@ Elements.Register("Checkbox", function(section, options)
     end
 
     function data:ClearKeybind()
+        if destroyed then return end
         data.keybind = nil
-        if keyLabel then keyLabel.Text = "None" end
+        if data.listening then
+            stopListening()
+        elseif keyLabel then
+            keyLabel.Text = "None"
+        end
     end
 
     function data:Destroy()
-        if keyTriggerConnection then keyTriggerConnection:Disconnect() end
-        if listeningConnection then listeningConnection:Disconnect() end
+        if destroyed then return end
+        destroyed = true
+        if listeningConnection then
+            listeningConnection:Disconnect()
+            listeningConnection = nil
+        end
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
+        table.clear(connections)
         container:Destroy()
     end
 

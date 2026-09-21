@@ -1,8 +1,12 @@
 -- // Paragraph
 Elements.Register("Paragraph", function(section, options)
+    options = type(options) == "table" and options or {}
+
     local COLORS = {
         TextActive = Color3.fromRGB(255, 255, 255),
+        TextDisabled = Color3.fromRGB(70, 70, 78),
         DescText = Color3.fromRGB(105, 105, 115),
+        DescDisabled = Color3.fromRGB(60, 60, 68),
         Line = Color3.fromRGB(32, 32, 32),
         ThumbBg = Color3.fromRGB(24, 24, 24),
     }
@@ -15,15 +19,56 @@ Elements.Register("Paragraph", function(section, options)
     local THUMB_GAP = 10
     local MIN_HEIGHT = 40
     local UPDATE_INTERVAL = 3
+    local WORD_MAX = 30
+
+    local players = Players or game:GetService("Players")
+    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
+    local fontRegular = FONT or Enum.Font.SourceSans
+
+    local destroyed = false
+    local liveToken = 0
+    local thumbWarned = false
 
     local function warnf(msg)
-        pcall(function() Notify({ Title = "CodyWas | Paragraph", Description = msg, Duration = 5 }) end)
+        pcall(function()
+            Notify({ Title = "CodyWas | Paragraph", Description = msg, Duration = 5 })
+        end)
     end
 
-    local title = options.title or options.Name or ""
-    local description = options.description or options.Description or ""
-    local thumbnail = options.thumbnail or options.Thumbnail or nil
-    local disabled = options.disabled or false
+    local function breakLongWords(text, maxLen)
+        text = tostring(text or "")
+        local lines = {}
+        for line in (text .. "\n"):gmatch("(.-)\n") do
+            local result = {}
+            for word in line:gmatch("%S+") do
+                while #word > maxLen do
+                    table.insert(result, word:sub(1, maxLen))
+                    word = word:sub(maxLen + 1)
+                end
+                table.insert(result, word)
+            end
+            table.insert(lines, table.concat(result, " "))
+        end
+        return table.concat(lines, "\n")
+    end
+
+    local title = tostring(options.title or options.Name or "")
+    local description = tostring(options.description or options.Description or "")
+    local thumbnail = options.thumbnail or options.Thumbnail
+    local disabled = options.disabled == true
+    local richText = options.richText ~= false
+
+    if thumbnail ~= nil and type(thumbnail) ~= "string" and type(thumbnail) ~= "number" then
+        warnf("thumbnail deve ser string ou number (userId)")
+        thumbnail = nil
+    end
+
+    local function formatText(text)
+        if richText then
+            return text
+        end
+        return breakLongWords(text, WORD_MAX)
+    end
 
     local data = {
         disabled = disabled,
@@ -39,6 +84,10 @@ Elements.Register("Paragraph", function(section, options)
     container.ClipsDescendants = false
     container.AutomaticSize = Enum.AutomaticSize.Y
     container.Parent = section.frame
+
+    local sizeConstraint = Instance.new("UISizeConstraint")
+    sizeConstraint.MinSize = Vector2.new(0, MIN_HEIGHT)
+    sizeConstraint.Parent = container
 
     local innerPad = Instance.new("UIPadding")
     innerPad.PaddingTop = UDim.new(0, PADDING_Y)
@@ -70,13 +119,14 @@ Elements.Register("Paragraph", function(section, options)
     local thumbStroke = Instance.new("UIStroke")
     thumbStroke.Color = COLORS.Line
     thumbStroke.Thickness = 1
+    thumbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     thumbStroke.Parent = thumbFrame
 
     local thumbImage = Instance.new("ImageLabel")
     thumbImage.Name = "Image"
     thumbImage.Size = UDim2.new(1, 0, 1, 0)
     thumbImage.BackgroundTransparency = 1
-    thumbImage.Image = thumbnail or ""
+    thumbImage.Image = type(thumbnail) == "string" and thumbnail or ""
     thumbImage.ScaleType = Enum.ScaleType.Crop
     thumbImage.ZIndex = 2
     thumbImage.Parent = thumbFrame
@@ -85,13 +135,11 @@ Elements.Register("Paragraph", function(section, options)
     thumbImageCorner.CornerRadius = UDim.new(0, 6)
     thumbImageCorner.Parent = thumbImage
 
-    local textOffset = thumbnail ~= nil and (THUMB_SIZE + THUMB_GAP) or 0
-
     local textFrame = Instance.new("Frame")
     textFrame.Name = "TextBlock"
     textFrame.BackgroundTransparency = 1
-    textFrame.Position = UDim2.new(0, textOffset, 0, 0)
-    textFrame.Size = UDim2.new(1, -textOffset, 0, 0)
+    textFrame.Position = UDim2.new(0, 0, 0, 0)
+    textFrame.Size = UDim2.new(1, 0, 0, 0)
     textFrame.AutomaticSize = Enum.AutomaticSize.Y
     textFrame.Parent = rowFrame
 
@@ -105,13 +153,14 @@ Elements.Register("Paragraph", function(section, options)
     titleLabel.Size = UDim2.new(1, 0, 0, 0)
     titleLabel.AutomaticSize = Enum.AutomaticSize.Y
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title
+    titleLabel.Text = formatText(title)
     titleLabel.TextColor3 = COLORS.TextActive
     titleLabel.TextSize = TITLE_SIZE
-    titleLabel.Font = FONT_BOLD
+    titleLabel.Font = fontBold
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextYAlignment = Enum.TextYAlignment.Top
     titleLabel.TextWrapped = true
-    titleLabel.RichText = true
+    titleLabel.RichText = richText
     titleLabel.LayoutOrder = 1
     titleLabel.Visible = title ~= ""
     titleLabel.Parent = textFrame
@@ -121,27 +170,25 @@ Elements.Register("Paragraph", function(section, options)
     descLabel.Size = UDim2.new(1, 0, 0, 0)
     descLabel.AutomaticSize = Enum.AutomaticSize.Y
     descLabel.BackgroundTransparency = 1
-    descLabel.Text = description
+    descLabel.Text = formatText(description)
     descLabel.TextColor3 = COLORS.DescText
     descLabel.TextSize = DESC_SIZE
-    descLabel.Font = FONT
+    descLabel.Font = fontRegular
     descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.TextYAlignment = Enum.TextYAlignment.Top
     descLabel.TextWrapped = true
     descLabel.LineHeight = 1.2
-    descLabel.RichText = true
+    descLabel.RichText = richText
     descLabel.LayoutOrder = 2
     descLabel.Visible = description ~= ""
     descLabel.Parent = textFrame
 
-    local liveActive = false
-    local liveUserId = nil
-
-    local function applyThumbnail(id)
-        if id and id ~= "" then
+    local function layoutThumbnail(hasThumb)
+        if hasThumb then
+            local offset = THUMB_SIZE + THUMB_GAP
             thumbFrame.Visible = true
-            thumbImage.Image = id
-            textFrame.Position = UDim2.new(0, THUMB_SIZE + THUMB_GAP, 0, 0)
-            textFrame.Size = UDim2.new(1, -(THUMB_SIZE + THUMB_GAP), 0, 0)
+            textFrame.Position = UDim2.new(0, offset, 0, 0)
+            textFrame.Size = UDim2.new(1, -offset, 0, 0)
         else
             thumbFrame.Visible = false
             thumbImage.Image = ""
@@ -150,27 +197,45 @@ Elements.Register("Paragraph", function(section, options)
         end
     end
 
-    local function resolveUserId(userId)
+    local function applyDisabled()
+        titleLabel.TextColor3 = data.disabled and COLORS.TextDisabled or COLORS.TextActive
+        descLabel.TextColor3 = data.disabled and COLORS.DescDisabled or COLORS.DescText
+        thumbImage.ImageTransparency = data.disabled and 0.5 or 0
+    end
+
+    local function fetchUserThumb(userId)
         local ok, result = pcall(function()
-            return Players:GetUserThumbnailAsync(
+            return players:GetUserThumbnailAsync(
                 userId,
                 Enum.ThumbnailType.HeadShot,
                 Enum.ThumbnailSize.Size100x100
             )
         end)
-        if ok and result then return result end
-        warnf("Falha ao buscar thumbnail do userId " .. tostring(userId))
+        if ok and result then
+            thumbWarned = false
+            return result
+        end
+        if not thumbWarned then
+            thumbWarned = true
+            warnf("Falha ao buscar thumbnail do userId " .. tostring(userId))
+        end
         return nil
     end
 
-    local function startLiveUpdate(userId)
-        liveActive = true
-        liveUserId = userId
+    local function stopLive()
+        liveToken = liveToken + 1
+    end
+
+    local function startLive(userId)
+        liveToken = liveToken + 1
+        local myToken = liveToken
+        thumbWarned = false
 
         task.spawn(function()
-            while liveActive and liveUserId == userId do
-                local img = resolveUserId(userId)
-                if img and liveActive and liveUserId == userId then
+            while not destroyed and liveToken == myToken do
+                local img = fetchUserThumb(userId)
+                if destroyed or liveToken ~= myToken then return end
+                if img and thumbImage.Image ~= img then
                     thumbImage.Image = img
                 end
                 task.wait(UPDATE_INTERVAL)
@@ -178,60 +243,71 @@ Elements.Register("Paragraph", function(section, options)
         end)
     end
 
-    if thumbnail then
-        if type(thumbnail) == "number" then
-            task.spawn(function()
-                applyThumbnail("")
-                startLiveUpdate(thumbnail)
-            end)
+    local function setThumbnailInternal(value)
+        stopLive()
+        data.thumbnail = value
+
+        if value == nil or value == "" then
+            layoutThumbnail(false)
+            return
+        end
+
+        layoutThumbnail(true)
+
+        if type(value) == "number" then
+            thumbImage.Image = ""
+            startLive(value)
+        elseif type(value) == "string" then
+            thumbImage.Image = value
         else
-            applyThumbnail(thumbnail)
+            warnf("thumbnail deve ser string ou number (userId)")
+            layoutThumbnail(false)
         end
     end
 
+    setThumbnailInternal(thumbnail)
+    applyDisabled()
+
     function data:SetTitle(newTitle)
-        if type(newTitle) ~= "string" then
-            warnf("SetTitle() esperava string")
-            return
-        end
+        if destroyed then return end
+        newTitle = tostring(newTitle or "")
         data.title = newTitle
-        titleLabel.Text = newTitle
+        titleLabel.Text = formatText(newTitle)
         titleLabel.Visible = newTitle ~= ""
+        container.Name = (newTitle ~= "" and newTitle or "Paragraph") .. "_Paragraph"
     end
 
     function data:SetDescription(newDesc)
-        if type(newDesc) ~= "string" then
-            warnf("SetDescription() esperava string")
-            return
-        end
+        if destroyed then return end
+        newDesc = tostring(newDesc or "")
         data.description = newDesc
-        descLabel.Text = newDesc
+        descLabel.Text = formatText(newDesc)
         descLabel.Visible = newDesc ~= ""
     end
 
-    function data:SetThumbnail(id)
-        liveActive = false
-        liveUserId = nil
-        data.thumbnail = id
-        if type(id) == "number" then
-            task.spawn(function()
-                applyThumbnail("")
-                startLiveUpdate(id)
-            end)
-        else
-            applyThumbnail(id)
-        end
+    function data:SetThumbnail(value)
+        if destroyed then return end
+        setThumbnailInternal(value)
     end
 
     function data:SetDisabled(value)
-        data.disabled = value
-        titleLabel.TextColor3 = value and Color3.fromRGB(70, 70, 78) or COLORS.TextActive
-        descLabel.TextColor3 = value and Color3.fromRGB(60, 60, 68) or COLORS.DescText
+        if destroyed then return end
+        data.disabled = value == true
+        applyDisabled()
+    end
+
+    function data:GetTitle()
+        return data.title
+    end
+
+    function data:GetDescription()
+        return data.description
     end
 
     function data:Destroy()
-        liveActive = false
-        liveUserId = nil
+        if destroyed then return end
+        destroyed = true
+        stopLive()
         container:Destroy()
     end
 

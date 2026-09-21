@@ -1,5 +1,7 @@
 -- // Slider
 Elements.Register("Slider", function(section, options)
+    options = type(options) == "table" and options or {}
+
     local COLORS = {
         Active = Color3.fromRGB(255, 255, 255),
         Inactive = Color3.fromRGB(20, 20, 20),
@@ -12,6 +14,7 @@ Elements.Register("Slider", function(section, options)
         FillDisabled = Color3.fromRGB(60, 60, 65),
         BadgeBg = Color3.fromRGB(25, 25, 25),
         BadgeText = Color3.fromRGB(255, 255, 255),
+        BadgeTextDisabled = Color3.fromRGB(70, 70, 78),
         DescriptionText = Color3.fromRGB(105, 105, 115),
         ThumbBg = Color3.fromRGB(255, 255, 255),
         ThumbBorder = Color3.fromRGB(200, 200, 200),
@@ -22,8 +25,29 @@ Elements.Register("Slider", function(section, options)
     local BADGE_SIZE = 11
     local TRACK_H = 6
     local THUMB_SIZE = 14
+    local THUMB_HOVER = 3
     local BASE_H = 36
     local WORD_MAX = 20
+    local BADGE_MIN_W = 40
+
+    local tweenService = TweenService or game:GetService("TweenService")
+    local userInputService = UserInputService or game:GetService("UserInputService")
+    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
+    local fontRegular = FONT or Enum.Font.SourceSans
+
+    local TI_FILL = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local TI_HOVER = TweenInfo.new(0.1)
+
+    local connections = {}
+    local destroyed = false
+    local dragging = false
+    local hovering = false
+
+    local function connect(signal, fn)
+        local conn = signal:Connect(fn)
+        table.insert(connections, conn)
+        return conn
+    end
 
     local function warnNotify(msg)
         pcall(function()
@@ -32,15 +56,24 @@ Elements.Register("Slider", function(section, options)
     end
 
     local function breakLongWords(text, maxLen)
-        local result = {}
-        for word in text:gmatch("%S+") do
-            while #word > maxLen do
-                table.insert(result, word:sub(1, maxLen))
-                word = word:sub(maxLen + 1)
+        text = tostring(text or "")
+        local lines = {}
+        for line in (text .. "\n"):gmatch("(.-)\n") do
+            local result = {}
+            for word in line:gmatch("%S+") do
+                while #word > maxLen do
+                    table.insert(result, word:sub(1, maxLen))
+                    word = word:sub(maxLen + 1)
+                end
+                table.insert(result, word)
             end
-            table.insert(result, word)
+            table.insert(lines, table.concat(result, " "))
         end
-        return table.concat(result, " ")
+        return table.concat(lines, "\n")
+    end
+
+    local function isFiniteNumber(v)
+        return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
     end
 
     local function round(value, decimals)
@@ -48,18 +81,34 @@ Elements.Register("Slider", function(section, options)
         return math.floor(value * m + 0.5) / m
     end
 
-    local title = options.title or options.Name or "Slider"
-    local description = options.description or ""
-    local min = options.min or options.Min or 0
-    local max = options.max or options.Max or 100
-    local rounding = options.rounding or 0
-    local suffix = options.suffix or options.ValueName or ""
-    local default = options.default or options.Default or min
-    local disabled = options.disabled or false
-    local callback = options.callback or options.Callback or function() end
+    local function isPointerInput(input)
+        return input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch
+    end
 
-    local displayDescription = breakLongWords(description, WORD_MAX)
-    local hasDescription = description ~= ""
+    local title = tostring(options.title or options.Name or "Slider")
+    local description = tostring(options.description or "")
+    local min = tonumber(options.min or options.Min)
+    local max = tonumber(options.max or options.Max)
+    local rounding = tonumber(options.rounding)
+    local suffix = tostring(options.suffix or options.ValueName or "")
+    local default = tonumber(options.default or options.Default)
+    local disabled = options.disabled == true
+    local callback = options.callback or options.Callback
+
+    if not isFiniteNumber(min) then min = 0 end
+    if not isFiniteNumber(max) then max = 100 end
+    if min > max then min, max = max, min end
+    if min == max then max = min + 1 end
+
+    if not isFiniteNumber(rounding) or rounding < 0 then rounding = 0 end
+    rounding = math.floor(rounding)
+
+    if not isFiniteNumber(default) then default = min end
+
+    if type(callback) ~= "function" then
+        callback = function() end
+    end
 
     default = round(math.clamp(default, min, max), rounding)
 
@@ -67,6 +116,13 @@ Elements.Register("Slider", function(section, options)
         value = default,
         disabled = disabled,
     }
+
+    local function formatValue(v)
+        if rounding <= 0 then
+            return tostring(math.floor(v + 0.5)) .. suffix
+        end
+        return string.format("%." .. rounding .. "f", v) .. suffix
+    end
 
     local container = Instance.new("Frame")
     container.Name = title .. "_Slider"
@@ -88,32 +144,33 @@ Elements.Register("Slider", function(section, options)
     topRow.LayoutOrder = 0
     topRow.Parent = container
 
-    local label = Instance.new("TextLabel")
-    label.Name = "Title"
-    label.Size = UDim2.new(1, -58, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = title
-    label.TextColor3 = COLORS.TextActive
-    label.TextSize = TITLE_SIZE
-    label.Font = FONT_BOLD or Enum.Font.SourceSansBold
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    label.Parent = topRow
+    local topLayout = Instance.new("UIListLayout")
+    topLayout.FillDirection = Enum.FillDirection.Horizontal
+    topLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    topLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    topLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    topLayout.Padding = UDim.new(0, 6)
+    topLayout.Parent = topRow
 
     local valueBadge = Instance.new("TextLabel")
     valueBadge.Name = "ValueBadge"
-    valueBadge.Size = UDim2.new(0, 52, 1, 0)
-    valueBadge.Position = UDim2.new(1, 0, 0, 0)
-    valueBadge.AnchorPoint = Vector2.new(1, 0)
+    valueBadge.Size = UDim2.new(0, BADGE_MIN_W, 1, 0)
+    valueBadge.AutomaticSize = Enum.AutomaticSize.X
     valueBadge.BackgroundColor3 = COLORS.BadgeBg
     valueBadge.BorderSizePixel = 0
-    valueBadge.Text = tostring(default) .. suffix
+    valueBadge.Text = formatValue(default)
     valueBadge.TextColor3 = COLORS.BadgeText
     valueBadge.TextSize = BADGE_SIZE
-    valueBadge.Font = FONT_BOLD or Enum.Font.SourceSansBold
+    valueBadge.Font = fontBold
     valueBadge.TextXAlignment = Enum.TextXAlignment.Center
     valueBadge.TextYAlignment = Enum.TextYAlignment.Center
+    valueBadge.LayoutOrder = 2
     valueBadge.Parent = topRow
+
+    local badgePad = Instance.new("UIPadding")
+    badgePad.PaddingLeft = UDim.new(0, 6)
+    badgePad.PaddingRight = UDim.new(0, 6)
+    badgePad.Parent = valueBadge
 
     local badgeCorner = Instance.new("UICorner")
     badgeCorner.CornerRadius = UDim.new(0, 4)
@@ -122,19 +179,39 @@ Elements.Register("Slider", function(section, options)
     local badgeStroke = Instance.new("UIStroke")
     badgeStroke.Color = COLORS.Line
     badgeStroke.Thickness = 1
+    badgeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     badgeStroke.Parent = valueBadge
 
+    local label = Instance.new("TextLabel")
+    label.Name = "Title"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = title
+    label.TextColor3 = COLORS.TextActive
+    label.TextSize = TITLE_SIZE
+    label.Font = fontBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.TextTruncate = Enum.TextTruncate.AtEnd
+    label.LayoutOrder = 1
+    label.Parent = topRow
+
+    local titleFlex = Instance.new("UIFlexItem")
+    titleFlex.FlexMode = Enum.UIFlexMode.Fill
+    titleFlex.Parent = label
+
     local descLabel
-    if hasDescription then
+
+    local function createDescription(text)
         descLabel = Instance.new("TextLabel")
         descLabel.Name = "Description"
         descLabel.Size = UDim2.new(1, 0, 0, 0)
         descLabel.AutomaticSize = Enum.AutomaticSize.Y
         descLabel.BackgroundTransparency = 1
-        descLabel.Text = displayDescription
+        descLabel.Text = breakLongWords(text, WORD_MAX)
         descLabel.TextColor3 = COLORS.DescriptionText
         descLabel.TextSize = DESC_SIZE
-        descLabel.Font = FONT or Enum.Font.SourceSans
+        descLabel.Font = fontRegular
         descLabel.TextXAlignment = Enum.TextXAlignment.Left
         descLabel.TextYAlignment = Enum.TextYAlignment.Top
         descLabel.TextWrapped = true
@@ -143,9 +220,13 @@ Elements.Register("Slider", function(section, options)
         descLabel.Parent = container
     end
 
+    if description ~= "" then
+        createDescription(description)
+    end
+
     local trackWrapper = Instance.new("Frame")
     trackWrapper.Name = "TrackWrapper"
-    trackWrapper.Size = UDim2.new(1, 0, 0, THUMB_SIZE)
+    trackWrapper.Size = UDim2.new(1, 0, 0, THUMB_SIZE + 6)
     trackWrapper.BackgroundTransparency = 1
     trackWrapper.LayoutOrder = 2
     trackWrapper.Parent = container
@@ -166,6 +247,7 @@ Elements.Register("Slider", function(section, options)
     local trackStroke = Instance.new("UIStroke")
     trackStroke.Color = COLORS.Line
     trackStroke.Thickness = 1
+    trackStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     trackStroke.Parent = track
 
     local fill = Instance.new("Frame")
@@ -198,6 +280,7 @@ Elements.Register("Slider", function(section, options)
     local thumbStroke = Instance.new("UIStroke")
     thumbStroke.Color = COLORS.ThumbBorder
     thumbStroke.Thickness = 1.5
+    thumbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     thumbStroke.Parent = thumb
 
     local clickArea = Instance.new("TextButton")
@@ -211,24 +294,41 @@ Elements.Register("Slider", function(section, options)
     clickArea.Parent = trackWrapper
 
     local function resizeContainer()
+        if destroyed then return end
         local contentH = mainLayout.AbsoluteContentSize.Y
         container.Size = UDim2.new(1, 0, 0, math.max(contentH + 4, BASE_H))
     end
 
+    local function getAlpha(value)
+        local range = max - min
+        if range <= 0 then return 0 end
+        return math.clamp((value - min) / range, 0, 1)
+    end
+
+    local function updateThumbSize()
+        if destroyed then return end
+        local grown = (hovering or dragging) and not data.disabled
+        local size = grown and (THUMB_SIZE + THUMB_HOVER) or THUMB_SIZE
+        tweenService:Create(thumb, TI_HOVER, { Size = UDim2.new(0, size, 0, size) }):Play()
+    end
+
     local function updateVisuals(animate)
-        local alpha = math.clamp((data.value - min) / (max - min), 0, 1)
+        if destroyed then return end
+
+        local alpha = getAlpha(data.value)
         local fillColor = data.disabled and COLORS.FillDisabled or COLORS.Fill
         local thumbColor = data.disabled and COLORS.FillDisabled or COLORS.ThumbBg
         local textColor = data.disabled and COLORS.TextDisabled or COLORS.TextActive
+        local badgeColor = data.disabled and COLORS.BadgeTextDisabled or COLORS.BadgeText
 
-        valueBadge.Text = tostring(data.value) .. suffix
+        valueBadge.Text = formatValue(data.value)
+        valueBadge.TextColor3 = badgeColor
         label.TextColor3 = textColor
         clickArea.Active = not data.disabled
 
         if animate then
-            local ti = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            TweenService:Create(fill, ti, { Size = UDim2.new(alpha, 0, 1, 0), BackgroundColor3 = fillColor }):Play()
-            TweenService:Create(thumb, ti, { Position = UDim2.new(alpha, 0, 0.5, 0), BackgroundColor3 = thumbColor }):Play()
+            tweenService:Create(fill, TI_FILL, { Size = UDim2.new(alpha, 0, 1, 0), BackgroundColor3 = fillColor }):Play()
+            tweenService:Create(thumb, TI_FILL, { Position = UDim2.new(alpha, 0, 0.5, 0), BackgroundColor3 = thumbColor }):Play()
         else
             fill.Size = UDim2.new(alpha, 0, 1, 0)
             fill.BackgroundColor3 = fillColor
@@ -244,13 +344,20 @@ Elements.Register("Slider", function(section, options)
         end
     end
 
-    local function setFromAlpha(alpha, animate)
-        alpha = math.clamp(alpha, 0, 1)
-        local newValue = round(min + (max - min) * alpha, rounding)
-        if newValue == data.value then return end
+    local function setValue(newValue, animate, silent)
+        newValue = round(math.clamp(newValue, min, max), rounding)
+        local changed = newValue ~= data.value
         data.value = newValue
         updateVisuals(animate)
-        fireCallback(data.value)
+        if changed and not silent then
+            fireCallback(data.value)
+        end
+        return changed
+    end
+
+    local function setFromAlpha(alpha, animate)
+        alpha = math.clamp(alpha, 0, 1)
+        setValue(min + (max - min) * alpha, animate)
     end
 
     local function getAlphaFromX(xPos)
@@ -260,57 +367,59 @@ Elements.Register("Slider", function(section, options)
         return (xPos - absPos) / absSize
     end
 
-    local dragging = false
+    local function stopDragging()
+        if not dragging then return end
+        dragging = false
+        updateThumbSize()
+    end
 
-    clickArea.InputBegan:Connect(function(input)
-        if data.disabled then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+    connect(clickArea.InputBegan, function(input)
+        if destroyed or data.disabled then return end
+        if isPointerInput(input) then
             dragging = true
+            updateThumbSize()
             setFromAlpha(getAlphaFromX(input.Position.X), true)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if not dragging then return end
+    connect(userInputService.InputChanged, function(input)
+        if destroyed or not dragging then return end
         if input.UserInputType == Enum.UserInputType.MouseMovement
         or input.UserInputType == Enum.UserInputType.Touch then
             setFromAlpha(getAlphaFromX(input.Position.X), false)
         end
     end)
 
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+    connect(userInputService.InputEnded, function(input)
+        if isPointerInput(input) then
+            stopDragging()
         end
     end)
 
-    clickArea.MouseEnter:Connect(function()
-        if data.disabled then return end
-        TweenService:Create(thumb, TweenInfo.new(0.1), { Size = UDim2.new(0, THUMB_SIZE + 3, 0, THUMB_SIZE + 3) }):Play()
+    connect(clickArea.MouseEnter, function()
+        hovering = true
+        updateThumbSize()
     end)
 
-    clickArea.MouseLeave:Connect(function()
-        if dragging then return end
-        TweenService:Create(thumb, TweenInfo.new(0.1), { Size = UDim2.new(0, THUMB_SIZE, 0, THUMB_SIZE) }):Play()
+    connect(clickArea.MouseLeave, function()
+        hovering = false
+        updateThumbSize()
     end)
 
-    if hasDescription then
-        descLabel:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeContainer)
-    end
-
-    mainLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeContainer)
+    connect(mainLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
 
     resizeContainer()
     updateVisuals(false)
     fireCallback(data.value)
 
     function data:Set(value)
-        value = round(math.clamp(value, min, max), rounding)
-        data.value = value
-        updateVisuals(true)
-        fireCallback(value)
+        if destroyed then return end
+        value = tonumber(value)
+        if not isFiniteNumber(value) then
+            warnNotify(("Slider '%s': valor invalido em Set()."):format(title))
+            return
+        end
+        setValue(value, true)
     end
 
     function data:Get()
@@ -318,41 +427,77 @@ Elements.Register("Slider", function(section, options)
     end
 
     function data:SetMin(newMin)
+        if destroyed then return end
+        newMin = tonumber(newMin)
+        if not isFiniteNumber(newMin) or newMin >= max then
+            warnNotify(("Slider '%s': min invalido."):format(title))
+            return
+        end
         min = newMin
-        data.value = round(math.clamp(data.value, min, max), rounding)
-        updateVisuals(true)
+        setValue(data.value, true)
     end
 
     function data:SetMax(newMax)
+        if destroyed then return end
+        newMax = tonumber(newMax)
+        if not isFiniteNumber(newMax) or newMax <= min then
+            warnNotify(("Slider '%s': max invalido."):format(title))
+            return
+        end
         max = newMax
-        data.value = round(math.clamp(data.value, min, max), rounding)
-        updateVisuals(true)
+        setValue(data.value, true)
     end
 
     function data:SetDisabled(value)
-        data.disabled = value
+        if destroyed then return end
+        data.disabled = value == true
+        if data.disabled then
+            stopDragging()
+        end
         updateVisuals(true)
+        updateThumbSize()
     end
 
     function data:SetTitle(newTitle)
-        label.Text = newTitle
+        if destroyed then return end
+        title = tostring(newTitle or "")
+        label.Text = title
+        container.Name = title .. "_Slider"
     end
 
     function data:SetDescription(newDesc)
-        if not descLabel then
-            warnNotify(("Slider '%s': sem descricao inicial."):format(title))
+        if destroyed then return end
+        newDesc = tostring(newDesc or "")
+        if newDesc == "" then
+            if descLabel then
+                descLabel:Destroy()
+                descLabel = nil
+            end
+            resizeContainer()
             return
         end
-        descLabel.Text = breakLongWords(newDesc, WORD_MAX)
+        if not descLabel then
+            createDescription(newDesc)
+        else
+            descLabel.Text = breakLongWords(newDesc, WORD_MAX)
+        end
         resizeContainer()
     end
 
     function data:SetSuffix(newSuffix)
-        suffix = newSuffix
+        if destroyed then return end
+        suffix = tostring(newSuffix or "")
         updateVisuals(false)
     end
 
     function data:Destroy()
+        if destroyed then return end
+        destroyed = true
+        dragging = false
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
+        table.clear(connections)
         container:Destroy()
     end
 

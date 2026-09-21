@@ -1,34 +1,68 @@
-local module = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/projects/templates/Inkwell.luau"))()
+-- bytecore
+
+local ok_notif, CodywasNotif = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/notifications/CodywasNotif.luau"))()
+end)
+
+local Notify
+if ok_notif and CodywasNotif and CodywasNotif.Notify then
+    Notify = CodywasNotif.Notify
+else
+    Notify = function(t)
+        print("[bytecore] " .. tostring(t.Title) .. " | " .. tostring(t.Description))
+    end
+end
 
 local HttpService = game:GetService("HttpService")
 
+local function remove_accents(s)
+    local map = {
+        {"á","a"},{"à","a"},{"â","a"},{"ã","a"},{"ä","a"},
+        {"é","e"},{"è","e"},{"ê","e"},{"ë","e"},
+        {"í","i"},{"ì","i"},{"î","i"},{"ï","i"},
+        {"ó","o"},{"ò","o"},{"ô","o"},{"õ","o"},{"ö","o"},
+        {"ú","u"},{"ù","u"},{"û","u"},{"ü","u"},
+        {"ç","c"},{"ñ","n"},
+        {"Á","A"},{"À","A"},{"Â","A"},{"Ã","A"},{"Ä","A"},
+        {"É","E"},{"È","E"},{"Ê","E"},{"Ë","E"},
+        {"Í","I"},{"Ì","I"},{"Î","I"},{"Ï","I"},
+        {"Ó","O"},{"Ò","O"},{"Ô","O"},{"Õ","O"},{"Ö","O"},
+        {"Ú","U"},{"Ù","U"},{"Û","U"},{"Ü","U"},
+        {"Ç","C"},{"Ñ","N"},
+    }
+    for _, pair in ipairs(map) do
+        s = s:gsub(pair[1], pair[2])
+    end
+    return s
+end
+
 local function get_placeinfo()
     local placeId = game.PlaceId
-    local gameName = "game_" .. placeId
+    local gameName = "game"
     pcall(function()
         local info = game:GetService("MarketplaceService"):GetProductInfoAsync(placeId)
         if info and info.Name then
-            gameName = info.Name:gsub('[<>:"/\\|?*%z%c]', "_"):sub(1, 60)
+            gameName = info.Name:gsub('[^%w%-%_%. ]', "_"):gsub("%s+", " "):match("^%s*(.-)%s*$"):sub(1, 50)
+            if gameName == "" or gameName:match("^%s*$") then gameName = "game" end
         end
     end)
     return placeId, gameName
 end
 
-local function setup_folders(root)
-    local folders = {root, root .. "/Scripts", root .. "/Remotes", root .. "/Info", root .. "/Modules", root .. "/Functions"}
-    for _, f in ipairs(folders) do
-        if not isfolder(f) then makefolder(f) end
-    end
+local function build_root(gameName, placeId)
+    return gameName .. "_" .. tostring(placeId)
 end
 
 local function sanitize(s)
-    return tostring(s):gsub('[<>:"/\\|?*%z%c]', "_"):sub(1, 80)
+    return tostring(s):gsub('[^%w%-%_%. ]', "_"):sub(1, 80)
 end
 
 local function build_path(obj)
     local t, c = {}, obj
     while c and c ~= game do
-        table.insert(t, 1, sanitize(c.Name))
+        local name = sanitize(c.Name)
+        if name == "" or name:match("^%s*$") then name = "_" end
+        table.insert(t, 1, name)
         c = c.Parent
     end
     return table.concat(t, "/")
@@ -78,9 +112,7 @@ end
 
 local function api_decompile(bc)
     local enc = base64_encode(bc)
-    if apiCache[enc] then
-        return apiCache[enc], "api"
-    end
+    if apiCache[enc] then return apiCache[enc], "api" end
 
     local el = os.clock() - lastReq
     if el < 0.8 then task.wait(0.8 - el) end
@@ -91,12 +123,11 @@ local function api_decompile(bc)
         Headers = {["Content-Type"] = "application/json"},
         Body = HttpService:JSONEncode({script = enc}),
     })
-
     lastReq = os.clock()
 
     if ok and res and res.StatusCode == 200 and res.Body and res.Body ~= "" then
         local parseOk, parsed = pcall(HttpService.JSONDecode, HttpService, res.Body)
-        local src = nil
+        local src
         if parseOk and type(parsed) == "table" then
             src = parsed.source or parsed.result or parsed.output or parsed.decompiled
         elseif not parseOk then
@@ -115,12 +146,11 @@ local function api_decompile(bc)
         Headers = {["Content-Type"] = "application/json"},
         Body = HttpService:JSONEncode({bytecode = enc}),
     })
-
     lastReq = os.clock()
 
     if ok2 and res2 and res2.StatusCode == 200 and res2.Body and res2.Body ~= "" then
         local parseOk2, parsed2 = pcall(HttpService.JSONDecode, HttpService, res2.Body)
-        local src2 = nil
+        local src2
         if parseOk2 and type(parsed2) == "table" then
             src2 = parsed2.source or parsed2.result or parsed2.output or parsed2.decompiled or parsed2.code
         elseif not parseOk2 then
@@ -157,8 +187,46 @@ local function extract_strings(bc)
     return result
 end
 
+local function extract_constants(script)
+    local ok, closure = pcall(getscriptclosure, script)
+    if not ok or not closure then return nil end
+    local ok2, consts = pcall(debug.getconstants, closure)
+    if not ok2 or not consts then return nil end
+    local lines = {"-- constants via debug.getconstants"}
+    for _, v in ipairs(consts) do
+        if type(v) == "string" and #v >= 4 then
+            table.insert(lines, v)
+        end
+    end
+    if #lines <= 1 then return nil end
+    return table.concat(lines, "\n"), "constants"
+end
+
+local intercepted = {}
+local orig_loadstring = nil
+
+local function hook_cb(src, chunkname)
+    if type(src) == "string" and is_valid_source(src) and #src > 100 then
+        local key = sanitize(tostring(chunkname or src:sub(1, 60)))
+        if key ~= "" then intercepted[key] = src end
+    end
+    return orig_loadstring(src, chunkname)
+end
+
+if oth and oth.hook then
+    orig_loadstring = oth.hook(loadstring, hook_cb)
+elseif hookfunction then
+    orig_loadstring = hookfunction(loadstring, newcclosure(hook_cb))
+end
+
 local function try_decompile(script, bc)
     local ver = bc and bc:byte(1) or 0
+    local fullName = ""
+    pcall(function() fullName = script:GetFullName() end)
+
+    if intercepted[sanitize(fullName)] then
+        return intercepted[sanitize(fullName)], "intercepted", ver
+    end
 
     local ok1, src1 = pcall(decompile, script)
     if ok1 and is_valid_source(src1) then return src1, "local_direct", ver end
@@ -202,6 +270,9 @@ local function try_decompile(script, bc)
         if api_src then return api_src, api_method, ver end
     end
 
+    local csrc, cmethod = extract_constants(script)
+    if csrc then return csrc, cmethod, ver end
+
     local strs = extract_strings(bc)
     if #strs > 0 then
         local lines = {"bytecode v" .. ver}
@@ -230,11 +301,11 @@ local function scan_remotes(src)
 end
 
 local KEYWORDS = {
-    farm = {"farm", "collect", "harvest", "gather", "auto", "loop", "repeat", "while true", "wait", "task.wait", "yield", "gold", "coin", "cash", "resource", "ore", "wood", "fish", "crop", "plant", "mine", "chop", "click", "idle", "rebirth", "prestige", "level", "xp", "exp", "currency"},
-    movement = {"speed", "walkspeed", "jump", "jumppower", "fly", "noclip", "teleport", "tween", "moveto", "position", "cframe", "vehicle", "sit", "boost"},
-    gui = {"screengui", "frame", "textlabel", "textbutton", "imagelabel", "imagebutton", "scrollingframe", "uilistlayout", "uipadding", "uicorner", "visible", "enabled", "toggle", "menu", "hub", "panel", "window", "notify", "notification", "popup"},
-    network = {"remotevent", "remotefunction", "fireserver", "invokeserver", "fireclient", "fireallclients", "onserverevent", "onclientevent", "unreliable", "bindable", "bind"},
-    util = {"module", "require", "service", "getservice", "waitforchild", "findfirstchild", "findfirstchildofclass", "getdescendants", "getchildren", "instance", "new", "clone", "destroy", "connect", "disconnect", "event"},
+    farm = {"farm","collect","harvest","gather","auto","loop","repeat","while true","wait","task.wait","yield","gold","coin","cash","resource","ore","wood","fish","crop","plant","mine","chop","click","idle","rebirth","prestige","level","xp","exp","currency"},
+    movement = {"speed","walkspeed","jump","jumppower","fly","noclip","teleport","tween","moveto","position","cframe","vehicle","sit","boost"},
+    gui = {"screengui","frame","textlabel","textbutton","imagelabel","imagebutton","scrollingframe","uilistlayout","uipadding","uicorner","visible","enabled","toggle","menu","hub","panel","window","notify","notification","popup"},
+    network = {"remotevent","remotefunction","fireserver","invokeserver","fireclient","fireallclients","onserverevent","onclientevent","unreliable","bindable","bind"},
+    util = {"module","require","service","getservice","waitforchild","findfirstchild","findfirstchildofclass","getdescendants","getchildren","instance","new","clone","destroy","connect","disconnect","event"},
 }
 
 local function classify_script(src)
@@ -251,13 +322,22 @@ local function classify_script(src)
     return tags
 end
 
-local function ensure_dirs(full_file_path)
-    local parts = string.split(full_file_path, "/")
+local function ensure_dirs(path)
+    local parts = {}
+    for part in path:gmatch("[^/]+") do
+        table.insert(parts, part)
+    end
     local cur = ""
     for idx = 1, #parts - 1 do
         cur = cur == "" and parts[idx] or (cur .. "/" .. parts[idx])
-        if not isfolder(cur) then makefolder(cur) end
+        local ok = pcall(function()
+            if not isfolder(cur) then
+                makefolder(cur)
+            end
+        end)
+        if not ok then return false end
     end
+    return true
 end
 
 local function resolve_output_path(root, script, fpath, ext)
@@ -273,12 +353,80 @@ local function resolve_output_path(root, script, fpath, ext)
     return base .. "/" .. fpath .. ext
 end
 
+local function write_file(path, content)
+    if not ensure_dirs(path) then return end
+    pcall(writefile, path, content)
+end
+
+local function already_dumped(root, script, fpath)
+    local exts = {get_extension(script), ".txt"}
+    for _, ext in ipairs(exts) do
+        if isfile(resolve_output_path(root, script, fpath, ext)) then
+            return true
+        end
+    end
+    return false
+end
+
+local function collect_all_instances(class)
+    local seen, result = {}, {}
+
+    local function add_list(list)
+        if not list then return end
+        for _, inst in ipairs(list) do
+            if inst.ClassName == class then
+                local path = ""
+                pcall(function() path = inst:GetFullName() end)
+                if path ~= "" and not seen[path] then
+                    seen[path] = true
+                    table.insert(result, path)
+                end
+            end
+        end
+    end
+
+    local ok1, desc = pcall(function() return game:GetDescendants() end)
+    if ok1 then add_list(desc) end
+
+    if getinstances then
+        local ok2, all = pcall(getinstances)
+        if ok2 then add_list(all) end
+    end
+
+    if getnilinstances then
+        local ok3, nil_insts = pcall(getnilinstances)
+        if ok3 then add_list(nil_insts) end
+    end
+
+    return result
+end
+
+if setstackhidden then
+    pcall(setstackhidden, try_decompile, true)
+    pcall(setstackhidden, api_decompile, true)
+    pcall(setstackhidden, write_file, true)
+    pcall(setstackhidden, hook_cb, true)
+end
+
 local placeId, gameName = get_placeinfo()
-local ROOT = gameName
+local displayName = remove_accents(gameName)
+local ROOT = build_root(remove_accents(gameName), placeId)
+local isResuming = isfolder(ROOT)
 
-setup_folders(ROOT)
+if not isResuming then
+    local ok = pcall(makefolder, ROOT)
+    if not ok then
+        ROOT = "bytecore_" .. tostring(placeId)
+        isResuming = isfolder(ROOT)
+        if not isResuming then pcall(makefolder, ROOT) end
+    end
+end
 
-local info_handle = module.print_info("iniciando script dump | " .. gameName .. " | placeId: " .. placeId)
+Notify({
+    Title = "bytecore",
+    Description = (isResuming and "Continuando | " or "Iniciando | ") .. displayName .. " | " .. placeId,
+    Duration = 5,
+})
 
 local scripts = getscripts()
 local stats = {
@@ -287,6 +435,7 @@ local stats = {
     api = 0,
     strings = 0,
     empty = 0,
+    skipped = 0,
     versions = {},
     tags = {},
 }
@@ -295,14 +444,7 @@ local scriptList = {}
 local taggedList = {}
 local remoteLogs = {}
 
-local bar = module.progressbar({
-    message = "decompilando scripts",
-    style = "block",
-    bar_size = 20,
-    show_percent = true,
-})
-
-for idx, script in ipairs(scripts) do
+for _, script in ipairs(scripts) do
     pcall(function()
         local fpath = build_path(script)
         if fpath == "" then return end
@@ -316,84 +458,99 @@ for idx, script in ipairs(scripts) do
 
         if not bc then
             stats.empty = stats.empty + 1
-        else
-            local src, method = try_decompile(script, bc)
+            return
+        end
 
-            if src then
-                local isStr = method and method:find("strings")
-                local isAPI = method and method:find("api")
-                local fileExt = isStr and ".txt" or get_extension(script)
+        if isResuming and already_dumped(ROOT, script, fpath) then
+            stats.skipped = stats.skipped + 1
+            return
+        end
 
-                local filePath = resolve_output_path(ROOT, script, fpath, fileExt)
-                ensure_dirs(filePath)
-                writefile(filePath, src)
+        local src, method = try_decompile(script, bc)
 
-                local tags = classify_script(src)
-                if #tags > 0 then
-                    table.insert(taggedList, table.concat(tags, " | ") .. " | " .. script:GetFullName())
-                    for _, t in ipairs(tags) do
-                        stats.tags[t] = (stats.tags[t] or 0) + 1
-                    end
-                end
+        if not src then
+            stats.empty = stats.empty + 1
+            return
+        end
 
-                local calls = scan_remotes(src)
-                if #calls > 0 then
-                    remoteLogs[script:GetFullName()] = calls
-                end
+        local isStr = method and method:find("strings")
+        local isAPI = method and method:find("api")
+        local fileExt = isStr and ".txt" or get_extension(script)
+        local filePath = resolve_output_path(ROOT, script, fpath, fileExt)
 
-                if isStr then
-                    stats.strings = stats.strings + 1
-                elseif isAPI then
-                    stats.api = stats.api + 1
-                    stats.decompiled = stats.decompiled + 1
-                else
-                    stats.decompiled = stats.decompiled + 1
-                end
-            else
-                stats.empty = stats.empty + 1
+        write_file(filePath, src)
+
+        local tags = classify_script(src)
+        if #tags > 0 then
+            table.insert(taggedList, table.concat(tags, " | ") .. " | " .. script:GetFullName())
+            for _, t in ipairs(tags) do
+                stats.tags[t] = (stats.tags[t] or 0) + 1
             end
         end
 
-        bar.set_message_and_progress(
-            "decompilando (" .. idx .. "/" .. stats.total .. ")",
-            math.floor(idx / stats.total * 100)
-        )
+        local calls = scan_remotes(src)
+        if #calls > 0 then
+            remoteLogs[script:GetFullName()] = calls
+        end
+
+        if isStr then
+            stats.strings = stats.strings + 1
+        elseif isAPI then
+            stats.api = stats.api + 1
+            stats.decompiled = stats.decompiled + 1
+        else
+            stats.decompiled = stats.decompiled + 1
+        end
     end)
 end
 
-bar.complete("scripts decompilados")
-task.wait(0.5)
-bar.cleanup()
+for name, src in pairs(intercepted) do
+    pcall(function()
+        if name ~= "" then
+            write_file(ROOT .. "/Intercepted/" .. name .. ".lua", src)
+        end
+    end)
+end
 
-writefile(ROOT .. "/Info/scripts.txt", table.concat(scriptList, "\n"))
-writefile(ROOT .. "/Info/tagged.txt", table.concat(taggedList, "\n"))
+if oth and oth.unhook and orig_loadstring then
+    pcall(oth.unhook, loadstring)
+elseif orig_loadstring and restorefunction then
+    pcall(restorefunction, loadstring)
+end
 
-local success_handle = module.print_success("decompilacao finalizada com sucesso")
+if #scriptList > 0 then
+    write_file(ROOT .. "/Info/scripts.txt", table.concat(scriptList, "\n"))
+end
+if #taggedList > 0 then
+    write_file(ROOT .. "/Info/tagged.txt", table.concat(taggedList, "\n"))
+end
 
-local spin = module.spinner({message = "buscando remotes no jogo", speed = 0.12})
+local skipMsg = stats.skipped > 0 and (" | Pulados: " .. stats.skipped) or ""
+Notify({
+    Title = "bytecore | Scripts",
+    Description = "Decompilados: " .. stats.decompiled .. " | API: " .. stats.api .. " | Strings: " .. stats.strings .. " | Vazios: " .. stats.empty .. skipMsg,
+    Duration = 6,
+})
 
-local classes = {"RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction"}
-local allLines = {}
+local remoteClasses = {"RemoteEvent", "RemoteFunction", "UnreliableRemoteEvent", "BindableEvent", "BindableFunction"}
+local allRemoteLines = {}
 local totalRemotes = 0
 
-for _, class in ipairs(classes) do
-    local found = {}
-    for _, inst in ipairs(game:GetDescendants()) do
-        if inst.ClassName == class then
-            table.insert(found, inst:GetFullName())
-            totalRemotes = totalRemotes + 1
-        end
-    end
-    if #found > 0 then
-        local lines = {class .. " (" .. #found .. ")"}
-        for _, p in ipairs(found) do table.insert(lines, "  " .. p) end
+for _, class in ipairs(remoteClasses) do
+    local paths = collect_all_instances(class)
+    if #paths > 0 then
+        totalRemotes = totalRemotes + #paths
+        local lines = {class .. " (" .. #paths .. ")"}
+        for _, p in ipairs(paths) do table.insert(lines, "  " .. p) end
         local content = table.concat(lines, "\n")
-        writefile(ROOT .. "/Remotes/" .. class .. ".txt", content)
-        table.insert(allLines, content)
+        write_file(ROOT .. "/Remotes/" .. class .. ".txt", content)
+        table.insert(allRemoteLines, content)
     end
 end
 
-writefile(ROOT .. "/Remotes/todos.txt", table.concat(allLines, "\n\n"))
+if #allRemoteLines > 0 then
+    write_file(ROOT .. "/Remotes/todos.txt", table.concat(allRemoteLines, "\n\n"))
+end
 
 if next(remoteLogs) then
     local lines = {"chamadas de remotes detectadas\n"}
@@ -401,44 +558,27 @@ if next(remoteLogs) then
         table.insert(lines, path)
         for _, c in ipairs(calls) do table.insert(lines, "  " .. c) end
     end
-    writefile(ROOT .. "/Remotes/calls.txt", table.concat(lines, "\n"))
+    write_file(ROOT .. "/Remotes/calls.txt", table.concat(lines, "\n"))
 end
 
-spin.complete("remotes encontrados | total: " .. totalRemotes)
-task.wait(0.5)
-spin.cleanup()
+Notify({
+    Title = "bytecore | Remotes",
+    Description = "Total: " .. totalRemotes .. " | API ok: " .. apiOk .. " | Falhas: " .. apiFail,
+    Duration = 5,
+})
 
-local vlist = {}
 local dominant, maxCount = "nenhum", 0
 for v, count in pairs(stats.versions) do
-    table.insert(vlist, v .. " " .. count)
     if count > maxCount then
         maxCount = count
         dominant = v
     end
 end
-table.sort(vlist)
 
-local tlist = {}
-for tag, count in pairs(stats.tags) do
-    table.insert(tlist, tag .. " " .. count)
-end
-table.sort(tlist)
+task.wait(1)
 
-local grp = module.group("relatorio final")
-grp.add("jogo: " .. gameName .. " | placeid: " .. placeId)
-grp.add("versao dominante: " .. dominant)
-grp.add("decompilados: " .. stats.decompiled .. " | api: " .. stats.api .. " | local: " .. (stats.decompiled - stats.api))
-grp.add("strings: " .. stats.strings .. " | vazios: " .. stats.empty .. " | total: " .. stats.total)
-if #tlist > 0 then
-    grp.add("tags: " .. table.concat(tlist, " | "))
-end
-grp.add("api sucesso: " .. apiOk .. " | falhas: " .. apiFail)
-
-local final_handle = module.print_success("dump finalizado na pasta: " .. gameName)
-
-task.wait(5)
-grp.cleanup()
-info_handle.cleanup()
-success_handle.cleanup()
-final_handle.cleanup()
+Notify({
+    Title = "bytecore | Finalizado",
+    Description = displayName .. " | " .. placeId .. " | Versao: " .. dominant,
+    Duration = 8,
+})
