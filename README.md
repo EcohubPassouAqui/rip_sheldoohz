@@ -18,5 +18,5 @@
 + Element Improvements
 
 [New Files]
-# Nothing
++ MidnightChasers.luau
 ```
