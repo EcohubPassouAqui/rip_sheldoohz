@@ -25,12 +25,11 @@ local Metrics = {
     MinHeight = 240,
     ScreenMargin = 24,
     TopBarHeight = 55,
-    ColumnGap = 8,
+    SectionGap = 8,
     PagePadding = 12,
     TabWidthPC = 150,
     TabWidthMobile = 110,
     NarrowBreakpoint = 460,
-    StackBreakpoint = 300,
     ShortBreakpoint = 320,
     PagePaddingShort = 6
 }
@@ -195,12 +194,10 @@ local Elements = {}
 Elements.List = {}
 Elements._searchRegistry = {}
 
--- // Elements Registrar
 function Elements.Register(name, constructor)
     Elements.List[name] = constructor
 end
 
--- // Elements Registrar Pesquisa
 function Elements.RegisterSearchEntry(labelText, frame)
     table.insert(Elements._searchRegistry, { label = labelText:lower(), frame = frame })
 end
@@ -864,7 +861,6 @@ function Library:_applyLayoutMode()
         tabWidth = Metrics.TabWidthMobile
     end
     self.tabWidth = tabWidth
-    self.contentWidth = width - tabWidth - Metrics.PagePadding * 2
     self.compact = height < Metrics.ShortBreakpoint
 
     if self.tabBar then
@@ -1313,6 +1309,7 @@ function Library:CreateTab(options)
     local tabData = {}
     tabData.name = tabName
     tabData.section = sectionName
+    tabData.sectionCount = 0
     tabData.selected = false
     tabData.window = window
 
@@ -1390,73 +1387,23 @@ function Library:CreateTab(options)
     pagePadding.PaddingBottom = UDim.new(0, Metrics.PagePadding)
     pagePadding.Parent = page
 
-    local columns = Instance.new("Frame")
-    columns.Name = "Columns"
-    columns.Size = UDim2.new(1, 0, 0, 0)
-    columns.AutomaticSize = Enum.AutomaticSize.Y
-    columns.BackgroundTransparency = 1
-    columns.BorderSizePixel = 0
-    columns.Parent = page
+    local pageLayout = Instance.new("UIListLayout")
+    pageLayout.Padding = UDim.new(0, Metrics.SectionGap)
+    pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    pageLayout.Parent = page
 
-    local columnsLayout = Instance.new("UIListLayout")
-    columnsLayout.FillDirection = Enum.FillDirection.Horizontal
-    columnsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-    columnsLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-    columnsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    columnsLayout.Padding = UDim.new(0, Metrics.ColumnGap)
-    columnsLayout.Parent = columns
-
-    -- // Criar Coluna
-    local function makeColumn(name, order)
-        local column = Instance.new("Frame")
-        column.Name = name
-        column.Size = UDim2.new(0.5, -Metrics.ColumnGap / 2, 0, 0)
-        column.AutomaticSize = Enum.AutomaticSize.Y
-        column.BackgroundTransparency = 1
-        column.BorderSizePixel = 0
-        column.LayoutOrder = order
-        column.Parent = columns
-
-        local layout = Instance.new("UIListLayout")
-        layout.Padding = UDim.new(0, Metrics.ColumnGap)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Parent = column
-
-        return column
-    end
-
-    local leftColumn = makeColumn("Left", 1)
-    local rightColumn = makeColumn("Right", 2)
-
-    -- // Reorganizar Colunas
+    -- // Ajustar Página
     local function relayout()
-        local stacked = window.IsMobile or (window.contentWidth or 0) < Metrics.StackBreakpoint
-        tabData.stacked = stacked
-
         local padding = window.compact and Metrics.PagePaddingShort or Metrics.PagePadding
         pagePadding.PaddingTop = UDim.new(0, padding)
         pagePadding.PaddingLeft = UDim.new(0, padding)
         pagePadding.PaddingRight = UDim.new(0, padding)
         pagePadding.PaddingBottom = UDim.new(0, padding)
-
-        if stacked then
-            columnsLayout.FillDirection = Enum.FillDirection.Vertical
-            leftColumn.Size = UDim2.new(1, 0, 0, 0)
-            rightColumn.Size = UDim2.new(1, 0, 0, 0)
-        else
-            columnsLayout.FillDirection = Enum.FillDirection.Horizontal
-            leftColumn.Size = UDim2.new(0.5, -Metrics.ColumnGap / 2, 0, 0)
-            rightColumn.Size = UDim2.new(0.5, -Metrics.ColumnGap / 2, 0, 0)
-        end
     end
-
-    table.insert(self.connections, page:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout))
 
     tabData.relayout = relayout
     tabData.button = button
     tabData.page = page
-    tabData.leftColumn = leftColumn
-    tabData.rightColumn = rightColumn
 
     relayout()
 
@@ -1517,8 +1464,8 @@ function Library:CreateTab(options)
     end
 
     -- // Criar Section
-    function tabData:CreateSection(sectionTitle, side)
-        local column = (type(side) == "string" and side:lower() == "right") and tabData.rightColumn or tabData.leftColumn
+    function tabData:CreateSection(sectionTitle)
+        tabData.sectionCount = tabData.sectionCount + 1
 
         local sectionFrame = Instance.new("Frame")
         sectionFrame.Size = UDim2.new(1, 0, 0, 0)
@@ -1527,7 +1474,8 @@ function Library:CreateTab(options)
         sectionFrame.BackgroundTransparency = 0.98
         sectionFrame.BorderSizePixel = 0
         sectionFrame.ClipsDescendants = true
-        sectionFrame.Parent = column
+        sectionFrame.LayoutOrder = tabData.sectionCount
+        sectionFrame.Parent = page
 
         local sectionCorner = Instance.new("UICorner")
         sectionCorner.CornerRadius = UDim.new(0, 6)
