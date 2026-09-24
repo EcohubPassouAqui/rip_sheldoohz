@@ -21,6 +21,19 @@ local Theme = {
     Close = Color3.fromRGB(232, 76, 76)
 }
 
+-- // Medidas
+local Metrics = {
+    MinWidth = 320,
+    MinHeight = 240,
+    ScreenMargin = 24,
+    TopBarHeight = 55,
+    ColumnGap = 8,
+    PagePadding = 12,
+    TabWidthPC = 150,
+    TabWidthMobile = 110,
+    NarrowBreakpoint = 460
+}
+
 -- // Ícones
 local ICONS = { assets = {} }
 pcall(function()
@@ -40,6 +53,15 @@ end
 -- // Obter Ícone
 local function icon(name, fallback)
     return ICONS.assets and ICONS.assets["lucide-" .. name] or fallback or "rbxassetid://11419472304"
+end
+
+-- // Obter Viewport
+local function getViewport()
+    local camera = workspace.CurrentCamera
+    if camera then
+        return camera.ViewportSize
+    end
+    return Vector2.new(1280, 720)
 end
 
 -- // Shield
@@ -182,591 +204,6 @@ function Elements.RegisterSearchEntry(labelText, frame)
     table.insert(Elements._searchRegistry, { label = labelText:lower(), frame = frame })
 end
 
--- // CheckBox
-Elements.Register("Checkbox", function(section, options)
-    options = type(options) == "table" and options or {}
-
-    local COLORS = {
-        Active = Color3.fromRGB(255, 255, 255),
-        Inactive = Color3.fromRGB(20, 20, 20),
-        TextActive = Color3.fromRGB(255, 255, 255),
-        TextInactive = Color3.fromRGB(105, 105, 115),
-        TextDisabled = Color3.fromRGB(70, 70, 78),
-        Line = Color3.fromRGB(32, 32, 32),
-        Icon = Color3.fromRGB(20, 20, 20),
-        DescriptionText = Color3.fromRGB(105, 105, 115),
-        KeyBindBg = Color3.fromRGB(30, 30, 32),
-        KeyBindBorder = Color3.fromRGB(55, 55, 60),
-        KeyBindText = Color3.fromRGB(180, 180, 190),
-        KeyBindHover = Color3.fromRGB(40, 40, 44),
-        KeyBindListening = Color3.fromRGB(50, 50, 56),
-        KeyBindListenText = Color3.fromRGB(220, 220, 255),
-    }
-
-    local TITLE_SIZE = 13
-    local DESC_SIZE = 11
-    local KEY_SIZE = 11
-    local BOX = 18
-    local PILL_W = 46
-    local PILL_H = 20
-    local WORD_MAX = 20
-    local BASE_H = 36
-
-    local tweenService = TweenService or game:GetService("TweenService")
-    local userInputService = UserInputService or game:GetService("UserInputService")
-    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
-    local fontRegular = FONT or Enum.Font.SourceSans
-
-    local TI_FAST = TweenInfo.new(0.1)
-    local TI_STD = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-    local connections = {}
-    local destroyed = false
-    local hovering = false
-    local listeningConnection
-    local listenStartedAt = 0
-
-    local function connect(signal, fn)
-        local conn = signal:Connect(fn)
-        table.insert(connections, conn)
-        return conn
-    end
-
-    local function warnNotify(msg)
-        pcall(function()
-            Notify({ Title = "CodyWas | Checkbox", Description = msg, Duration = 5 })
-        end)
-    end
-
-    local function infoNotify(msg)
-        pcall(function()
-            Notify({ Title = "CodyWas | KeyBind", Description = msg, Duration = 3 })
-        end)
-    end
-
-    local function breakLongWords(text, maxLen)
-        text = tostring(text or "")
-        local lines = {}
-        for line in (text .. "\n"):gmatch("(.-)\n") do
-            local result = {}
-            for word in line:gmatch("%S+") do
-                while #word > maxLen do
-                    table.insert(result, word:sub(1, maxLen))
-                    word = word:sub(maxLen + 1)
-                end
-                table.insert(result, word)
-            end
-            table.insert(lines, table.concat(result, " "))
-        end
-        return table.concat(lines, "\n")
-    end
-
-    local KEY_NAMES = {
-        [Enum.KeyCode.A] = "A", [Enum.KeyCode.B] = "B", [Enum.KeyCode.C] = "C",
-        [Enum.KeyCode.D] = "D", [Enum.KeyCode.E] = "E", [Enum.KeyCode.F] = "F",
-        [Enum.KeyCode.G] = "G", [Enum.KeyCode.H] = "H", [Enum.KeyCode.I] = "I",
-        [Enum.KeyCode.J] = "J", [Enum.KeyCode.K] = "K", [Enum.KeyCode.L] = "L",
-        [Enum.KeyCode.M] = "M", [Enum.KeyCode.N] = "N", [Enum.KeyCode.O] = "O",
-        [Enum.KeyCode.P] = "P", [Enum.KeyCode.Q] = "Q", [Enum.KeyCode.R] = "R",
-        [Enum.KeyCode.S] = "S", [Enum.KeyCode.T] = "T", [Enum.KeyCode.U] = "U",
-        [Enum.KeyCode.V] = "V", [Enum.KeyCode.W] = "W", [Enum.KeyCode.X] = "X",
-        [Enum.KeyCode.Y] = "Y", [Enum.KeyCode.Z] = "Z",
-        [Enum.KeyCode.Zero] = "0", [Enum.KeyCode.One] = "1",
-        [Enum.KeyCode.Two] = "2", [Enum.KeyCode.Three] = "3",
-        [Enum.KeyCode.Four] = "4", [Enum.KeyCode.Five] = "5",
-        [Enum.KeyCode.Six] = "6", [Enum.KeyCode.Seven] = "7",
-        [Enum.KeyCode.Eight] = "8", [Enum.KeyCode.Nine] = "9",
-        [Enum.KeyCode.F1] = "F1", [Enum.KeyCode.F2] = "F2",
-        [Enum.KeyCode.F3] = "F3", [Enum.KeyCode.F4] = "F4",
-        [Enum.KeyCode.F5] = "F5", [Enum.KeyCode.F6] = "F6",
-        [Enum.KeyCode.F7] = "F7", [Enum.KeyCode.F8] = "F8",
-        [Enum.KeyCode.F9] = "F9", [Enum.KeyCode.F10] = "F10",
-        [Enum.KeyCode.F11] = "F11", [Enum.KeyCode.F12] = "F12",
-        [Enum.KeyCode.LeftShift] = "LShift", [Enum.KeyCode.RightShift] = "RShift",
-        [Enum.KeyCode.LeftControl] = "LCtrl", [Enum.KeyCode.RightControl] = "RCtrl",
-        [Enum.KeyCode.LeftAlt] = "LAlt", [Enum.KeyCode.RightAlt] = "RAlt",
-        [Enum.KeyCode.Tab] = "Tab", [Enum.KeyCode.CapsLock] = "Caps",
-        [Enum.KeyCode.Space] = "Space", [Enum.KeyCode.Return] = "Enter",
-        [Enum.KeyCode.Backspace] = "Back", [Enum.KeyCode.Delete] = "Del",
-        [Enum.KeyCode.Insert] = "Ins", [Enum.KeyCode.Home] = "Home",
-        [Enum.KeyCode.End] = "End", [Enum.KeyCode.PageUp] = "PgUp",
-        [Enum.KeyCode.PageDown] = "PgDn", [Enum.KeyCode.Escape] = "Esc",
-        [Enum.KeyCode.Up] = "Up", [Enum.KeyCode.Down] = "Down",
-        [Enum.KeyCode.Left] = "Left", [Enum.KeyCode.Right] = "Right",
-        [Enum.KeyCode.KeypadZero] = "Num0", [Enum.KeyCode.KeypadOne] = "Num1",
-        [Enum.KeyCode.KeypadTwo] = "Num2", [Enum.KeyCode.KeypadThree] = "Num3",
-        [Enum.KeyCode.KeypadFour] = "Num4", [Enum.KeyCode.KeypadFive] = "Num5",
-        [Enum.KeyCode.KeypadSix] = "Num6", [Enum.KeyCode.KeypadSeven] = "Num7",
-        [Enum.KeyCode.KeypadEight] = "Num8", [Enum.KeyCode.KeypadNine] = "Num9",
-        [Enum.UserInputType.MouseButton1] = "M1",
-        [Enum.UserInputType.MouseButton2] = "M2",
-        [Enum.UserInputType.MouseButton3] = "M3",
-    }
-
-    local function getKeyName(binding)
-        if not binding then return "None" end
-        return KEY_NAMES[binding] or tostring(binding):match("%.(%w+)$") or "?"
-    end
-
-    local function isValidBinding(binding)
-        if typeof(binding) ~= "EnumItem" then return false end
-        return binding.EnumType == Enum.KeyCode or binding.EnumType == Enum.UserInputType
-    end
-
-    local function matchInput(binding, input)
-        if typeof(binding) ~= "EnumItem" then return false end
-        if binding.EnumType == Enum.KeyCode then
-            return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == binding
-        elseif binding.EnumType == Enum.UserInputType then
-            return input.UserInputType == binding
-        end
-        return false
-    end
-
-    local title = tostring(options.title or options.Name or "Checkbox")
-    local description = tostring(options.description or "")
-    local default = (options.default or options.Default) == true
-    local disabled = options.disabled == true
-    local callback = options.callback or options.Callback
-    local keybind = options.keybind
-    local keybindCb = options.keybindCallback
-
-    if type(callback) ~= "function" then
-        callback = function() end
-    end
-
-    if type(keybindCb) ~= "function" then
-        keybindCb = nil
-    end
-
-    if keybind ~= nil and not isValidBinding(keybind) then
-        keybind = nil
-    end
-
-    local hasKeybind = options.keybind ~= nil
-
-    local data = {
-        state = default,
-        disabled = disabled,
-        keybind = keybind,
-        listening = false,
-    }
-
-    local rightReserve = BOX + 4
-    if hasKeybind then
-        rightReserve = rightReserve + PILL_W + 6
-    end
-
-    local container = Instance.new("Frame")
-    container.Name = title .. "_Checkbox"
-    container.Size = UDim2.new(1, 0, 0, BASE_H)
-    container.BackgroundTransparency = 1
-    container.Parent = section.frame
-
-    local clickArea = Instance.new("TextButton")
-    clickArea.Name = "ClickArea"
-    clickArea.Size = UDim2.new(1, -rightReserve, 1, 0)
-    clickArea.BackgroundTransparency = 1
-    clickArea.Text = ""
-    clickArea.AutoButtonColor = false
-    clickArea.Selectable = false
-    clickArea.Parent = container
-
-    local textFrame = Instance.new("Frame")
-    textFrame.Name = "TextFrame"
-    textFrame.Size = UDim2.new(1, 0, 1, 0)
-    textFrame.BackgroundTransparency = 1
-    textFrame.Parent = clickArea
-
-    local textLayout = Instance.new("UIListLayout")
-    textLayout.FillDirection = Enum.FillDirection.Vertical
-    textLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    textLayout.Padding = UDim.new(0, 2)
-    textLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    textLayout.Parent = textFrame
-
-    local label = Instance.new("TextLabel")
-    label.Name = "Title"
-    label.Size = UDim2.new(1, 0, 0, TITLE_SIZE + 3)
-    label.BackgroundTransparency = 1
-    label.Text = title
-    label.TextColor3 = default and COLORS.TextActive or COLORS.TextInactive
-    label.TextSize = TITLE_SIZE
-    label.Font = fontBold
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    label.TextTruncate = Enum.TextTruncate.AtEnd
-    label.LayoutOrder = 0
-    label.Parent = textFrame
-
-    local descLabel
-
-    local function createDescription(text)
-        descLabel = Instance.new("TextLabel")
-        descLabel.Name = "Description"
-        descLabel.Size = UDim2.new(1, 0, 0, 0)
-        descLabel.AutomaticSize = Enum.AutomaticSize.Y
-        descLabel.BackgroundTransparency = 1
-        descLabel.Text = breakLongWords(text, WORD_MAX)
-        descLabel.TextColor3 = COLORS.DescriptionText
-        descLabel.TextSize = DESC_SIZE
-        descLabel.Font = fontRegular
-        descLabel.TextXAlignment = Enum.TextXAlignment.Left
-        descLabel.TextYAlignment = Enum.TextYAlignment.Top
-        descLabel.TextWrapped = true
-        descLabel.LineHeight = 1.15
-        descLabel.LayoutOrder = 1
-        descLabel.Parent = textFrame
-    end
-
-    local box = Instance.new("Frame")
-    box.Name = "Box"
-    box.Size = UDim2.new(0, BOX, 0, BOX)
-    box.Position = UDim2.new(1, 0, 0.5, -BOX / 2)
-    box.AnchorPoint = Vector2.new(1, 0)
-    box.BackgroundColor3 = default and COLORS.Active or COLORS.Inactive
-    box.BorderSizePixel = 0
-    box.Parent = container
-
-    local boxCorner = Instance.new("UICorner")
-    boxCorner.CornerRadius = UDim.new(0, 4)
-    boxCorner.Parent = box
-
-    local boxStroke = Instance.new("UIStroke")
-    boxStroke.Color = default and COLORS.Active or COLORS.Line
-    boxStroke.Thickness = 1.2
-    boxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    boxStroke.Parent = box
-
-    local checkIcon = Instance.new("ImageLabel")
-    checkIcon.Name = "Check"
-    checkIcon.Size = UDim2.new(0, 12, 0, 12)
-    checkIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-    checkIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-    checkIcon.BackgroundTransparency = 1
-    checkIcon.Image = (ICONS and ICONS.assets and ICONS.assets["lucide-check"]) or "rbxassetid://10709790644"
-    checkIcon.ImageColor3 = COLORS.Icon
-    checkIcon.ImageTransparency = default and 0 or 1
-    checkIcon.Selectable = false
-    checkIcon.Parent = box
-
-    local keyBtn, keyLabel, keyStroke
-    if hasKeybind then
-        keyBtn = Instance.new("TextButton")
-        keyBtn.Name = "KeyBind"
-        keyBtn.Size = UDim2.new(0, PILL_W, 0, PILL_H)
-        keyBtn.Position = UDim2.new(1, -(BOX + 4 + PILL_W), 0.5, -PILL_H / 2)
-        keyBtn.AnchorPoint = Vector2.new(0, 0)
-        keyBtn.BackgroundColor3 = COLORS.KeyBindBg
-        keyBtn.BorderSizePixel = 0
-        keyBtn.Text = ""
-        keyBtn.AutoButtonColor = false
-        keyBtn.Selectable = false
-        keyBtn.Parent = container
-
-        local keyCorner = Instance.new("UICorner")
-        keyCorner.CornerRadius = UDim.new(0, 4)
-        keyCorner.Parent = keyBtn
-
-        keyStroke = Instance.new("UIStroke")
-        keyStroke.Color = COLORS.KeyBindBorder
-        keyStroke.Thickness = 1
-        keyStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        keyStroke.Parent = keyBtn
-
-        keyLabel = Instance.new("TextLabel")
-        keyLabel.Name = "KeyLabel"
-        keyLabel.Size = UDim2.new(1, 0, 1, 0)
-        keyLabel.BackgroundTransparency = 1
-        keyLabel.Text = getKeyName(data.keybind)
-        keyLabel.TextColor3 = COLORS.KeyBindText
-        keyLabel.TextSize = KEY_SIZE
-        keyLabel.Font = fontBold
-        keyLabel.TextXAlignment = Enum.TextXAlignment.Center
-        keyLabel.TextYAlignment = Enum.TextYAlignment.Center
-        keyLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        keyLabel.Parent = keyBtn
-    end
-
-    local function resizeContainer()
-        if destroyed then return end
-        if not descLabel then
-            container.Size = UDim2.new(1, 0, 0, BASE_H)
-            return
-        end
-        local contentH = textLayout.AbsoluteContentSize.Y
-        local totalH = math.max(contentH + 14, BASE_H)
-        container.Size = UDim2.new(1, 0, 0, totalH)
-    end
-
-    local function updateVisuals(animate)
-        if destroyed then return end
-
-        local boxColor = data.state and COLORS.Active or COLORS.Inactive
-        local strokeColor = data.state and COLORS.Active or COLORS.Line
-        local checkT = data.state and 0 or 1
-        local textColor = data.state and COLORS.TextActive or COLORS.TextInactive
-
-        if data.disabled then
-            boxColor = COLORS.Inactive
-            strokeColor = COLORS.Line
-            textColor = COLORS.TextDisabled
-            checkT = 1
-        end
-
-        if animate then
-            tweenService:Create(box, TI_STD, { BackgroundColor3 = boxColor }):Play()
-            tweenService:Create(boxStroke, TI_STD, { Color = strokeColor, Thickness = 1.2 }):Play()
-            tweenService:Create(checkIcon, TI_STD, { ImageTransparency = checkT, ImageColor3 = COLORS.Icon }):Play()
-            tweenService:Create(label, TI_STD, { TextColor3 = textColor }):Play()
-        else
-            box.BackgroundColor3 = boxColor
-            boxStroke.Color = strokeColor
-            boxStroke.Thickness = 1.2
-            checkIcon.ImageTransparency = checkT
-            checkIcon.ImageColor3 = COLORS.Icon
-            label.TextColor3 = textColor
-        end
-
-        clickArea.Active = not data.disabled
-    end
-
-    local function applyHover(state)
-        if destroyed or data.disabled then return end
-        if state then
-            tweenService:Create(boxStroke, TI_STD, { Color = COLORS.Active, Thickness = 1.4 }):Play()
-            if not data.state then
-                tweenService:Create(checkIcon, TI_STD, { ImageTransparency = 0.55, ImageColor3 = COLORS.Active }):Play()
-            end
-        else
-            tweenService:Create(boxStroke, TI_STD, { Color = data.state and COLORS.Active or COLORS.Line, Thickness = 1.2 }):Play()
-            if not data.state then
-                tweenService:Create(checkIcon, TI_STD, { ImageTransparency = 1, ImageColor3 = COLORS.Icon }):Play()
-            end
-        end
-    end
-
-    local function fireCallback(value)
-        local ok, err = pcall(callback, value)
-        if not ok then
-            warnNotify(("Checkbox '%s': %s"):format(title, tostring(err)))
-        end
-    end
-
-    local function fireKeybindCallback(value)
-        if not keybindCb then return end
-        local ok, err = pcall(keybindCb, value)
-        if not ok then
-            warnNotify(("Checkbox '%s' (keybind): %s"):format(title, tostring(err)))
-        end
-    end
-
-    local function toggle()
-        if destroyed or data.disabled then return end
-        data.state = not data.state
-        updateVisuals(true)
-        if hovering then applyHover(true) end
-        fireCallback(data.state)
-    end
-
-    local function resetKeyVisual()
-        if not keyBtn then return end
-        tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindBg }):Play()
-        tweenService:Create(keyStroke, TI_FAST, { Color = COLORS.KeyBindBorder }):Play()
-        keyLabel.Text = getKeyName(data.keybind)
-        keyLabel.TextColor3 = COLORS.KeyBindText
-    end
-
-    local function stopListening()
-        if listeningConnection then
-            listeningConnection:Disconnect()
-            listeningConnection = nil
-        end
-        data.listening = false
-        resetKeyVisual()
-    end
-
-    local function enterListenMode()
-        if destroyed or not hasKeybind or data.disabled or data.listening then return end
-        data.listening = true
-        listenStartedAt = os.clock()
-
-        tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindListening }):Play()
-        tweenService:Create(keyStroke, TI_FAST, { Color = COLORS.KeyBindListenText }):Play()
-        keyLabel.Text = "..."
-        keyLabel.TextColor3 = COLORS.KeyBindListenText
-
-        listeningConnection = userInputService.InputBegan:Connect(function(input)
-            if destroyed or not data.listening then return end
-            if os.clock() - listenStartedAt < 0.15 then return end
-
-            local newBind
-
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.MouseButton2
-            or input.UserInputType == Enum.UserInputType.MouseButton3 then
-                newBind = input.UserInputType
-            elseif input.UserInputType == Enum.UserInputType.Keyboard then
-                if input.KeyCode == Enum.KeyCode.Escape then
-                    data.keybind = nil
-                    stopListening()
-                    infoNotify(("Bind de '%s' removido."):format(title))
-                    return
-                end
-                newBind = input.KeyCode
-            end
-
-            if newBind then
-                data.keybind = newBind
-                stopListening()
-                infoNotify(("'%s' -> %s"):format(title, getKeyName(newBind)))
-            end
-        end)
-    end
-
-    if hasKeybind then
-        connect(userInputService.InputBegan, function(input, gp)
-            if destroyed or gp or data.disabled or data.listening then return end
-            if not data.keybind then return end
-            if matchInput(data.keybind, input) then
-                toggle()
-                fireKeybindCallback(data.state)
-            end
-        end)
-    end
-
-    connect(clickArea.MouseButton1Click, toggle)
-
-    connect(clickArea.MouseEnter, function()
-        hovering = true
-        applyHover(true)
-    end)
-
-    connect(clickArea.MouseLeave, function()
-        hovering = false
-        applyHover(false)
-    end)
-
-    if hasKeybind then
-        connect(keyBtn.MouseButton1Click, enterListenMode)
-
-        connect(keyBtn.MouseEnter, function()
-            if data.disabled or data.listening then return end
-            tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindHover }):Play()
-        end)
-
-        connect(keyBtn.MouseLeave, function()
-            if data.listening then return end
-            tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindBg }):Play()
-        end)
-    end
-
-    connect(textLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
-
-    if description ~= "" then
-        createDescription(description)
-    end
-
-    resizeContainer()
-    updateVisuals(false)
-    if default then fireCallback(default) end
-
-    function data:Set(value)
-        if destroyed then return end
-        value = value == true
-        if data.state == value then return end
-        data.state = value
-        updateVisuals(true)
-        fireCallback(value)
-    end
-
-    function data:Get()
-        return data.state
-    end
-
-    function data:Toggle()
-        toggle()
-    end
-
-    function data:SetDisabled(value)
-        if destroyed then return end
-        data.disabled = value == true
-        if data.disabled and data.listening then
-            stopListening()
-        end
-        updateVisuals(true)
-        if hovering then applyHover(true) end
-    end
-
-    function data:SetTitle(newTitle)
-        if destroyed then return end
-        label.Text = tostring(newTitle or "")
-    end
-
-    function data:SetDescription(newDesc)
-        if destroyed then return end
-        newDesc = tostring(newDesc or "")
-        if newDesc == "" then
-            if descLabel then
-                descLabel:Destroy()
-                descLabel = nil
-            end
-            resizeContainer()
-            return
-        end
-        if not descLabel then
-            createDescription(newDesc)
-        else
-            descLabel.Text = breakLongWords(newDesc, WORD_MAX)
-        end
-        resizeContainer()
-    end
-
-    function data:SetKeybind(newBind)
-        if destroyed then return end
-        if newBind ~= nil and not isValidBinding(newBind) then
-            warnNotify(("Checkbox '%s': keybind invalido."):format(title))
-            return
-        end
-        data.keybind = newBind
-        if data.listening then
-            stopListening()
-        elseif keyLabel then
-            keyLabel.Text = getKeyName(newBind)
-        end
-    end
-
-    function data:GetKeybind()
-        return data.keybind
-    end
-
-    function data:ClearKeybind()
-        if destroyed then return end
-        data.keybind = nil
-        if data.listening then
-            stopListening()
-        elseif keyLabel then
-            keyLabel.Text = "None"
-        end
-    end
-
-    function data:Destroy()
-        if destroyed then return end
-        destroyed = true
-        if listeningConnection then
-            listeningConnection:Disconnect()
-            listeningConnection = nil
-        end
-        for _, conn in ipairs(connections) do
-            conn:Disconnect()
-        end
-        table.clear(connections)
-        container:Destroy()
-    end
-
-    return data
-end)
-
 -- // Library
 local Library = {}
 Library.__index = Library
@@ -780,8 +217,8 @@ function Library:CreateWindow(config)
     self.Title = config.Title or "UILib"
     self.SubTitle = config.SubTitle or config.Subtitle or ""
     local size = config.Size or UDim2.fromOffset(580, 460)
-    self.Width = size.X.Offset
-    self.Height = size.Y.Offset
+    self.BaseWidth = size.X.Offset
+    self.BaseHeight = size.Y.Offset
     self.MinimizeKey = config.MinimizeKey or Enum.KeyCode.LeftControl
     self.IsMobile = IsMobile()
     self.tabs = {}
@@ -789,7 +226,6 @@ function Library:CreateWindow(config)
     self.sectionCount = 0
     self.selectedTab = nil
     self.dragging = false
-    self.dragOffset = Vector2.new(0, 0)
     self.connections = {}
     self.minimized = false
 
@@ -808,6 +244,52 @@ end
 -- // Compatibilidade Library.new
 function Library.new(title, subtitle)
     return Library:CreateWindow({ Title = title, SubTitle = subtitle })
+end
+
+-- // Calcular Tamanho
+function Library:_computeSize()
+    local viewport = getViewport()
+    local maxWidth = math.max(Metrics.MinWidth, viewport.X - Metrics.ScreenMargin * 2)
+    local maxHeight = math.max(Metrics.MinHeight, viewport.Y - Metrics.ScreenMargin * 2)
+    local width = math.clamp(self.BaseWidth, Metrics.MinWidth, maxWidth)
+    local height = math.clamp(self.BaseHeight, Metrics.MinHeight, maxHeight)
+    return width, height
+end
+
+-- // Aplicar Tamanho
+function Library:_applySize()
+    if not self.mainPanel then return end
+    local width, height = self:_computeSize()
+    self.currentWidth = width
+    self.currentHeight = height
+    self.mainPanel.Size = UDim2.new(0, width, 0, height)
+    self:_applyLayoutMode()
+end
+
+-- // Modo Layout
+function Library:_applyLayoutMode()
+    local tabWidth = self.IsMobile and Metrics.TabWidthMobile or Metrics.TabWidthPC
+    if self.currentWidth and self.currentWidth < Metrics.NarrowBreakpoint then
+        tabWidth = Metrics.TabWidthMobile
+    end
+    self.tabWidth = tabWidth
+
+    if self.tabBar then
+        self.tabBar.Size = UDim2.new(0, tabWidth, 1, 0)
+    end
+    if self.tabDivider then
+        self.tabDivider.Position = UDim2.new(0, tabWidth - 1, 0, 0)
+    end
+    if self.tabContent then
+        self.tabContent.Size = UDim2.new(1, -tabWidth, 1, 0)
+        self.tabContent.Position = UDim2.new(0, tabWidth, 0, 0)
+    end
+
+    for _, tab in ipairs(self.tabs) do
+        if tab.relayout then
+            tab.relayout()
+        end
+    end
 end
 
 -- // Iniciar Janela
@@ -830,9 +312,7 @@ function Library:_init()
     Shield:PlaceGui(self.screenGui)
     Shield:HideObject(self.screenGui)
 
-    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
-    local width = math.min(self.Width, viewport.X - 24)
-    local height = math.min(self.Height, viewport.Y - 24)
+    local width, height = self:_computeSize()
     self.currentWidth = width
     self.currentHeight = height
 
@@ -859,6 +339,14 @@ function Library:_init()
     self:_createTopBar()
     self:_createContent()
     self:_setupDrag()
+    self:_applyLayoutMode()
+
+    local camera = workspace.CurrentCamera
+    if camera then
+        table.insert(self.connections, camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            self:_applySize()
+        end))
+    end
 
     if self.IsMobile then
         self:_createToggleButton()
@@ -890,12 +378,12 @@ function Library:_setupKeybind()
     end))
 end
 
--- // Botão Barra Título
-local function makeBarButton(parent, iconName, fallback, posX, hoverColor)
+-- // Botão Fechar
+local function makeCloseButton(parent)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 28, 0, 28)
     btn.AnchorPoint = Vector2.new(1, 0.5)
-    btn.Position = UDim2.new(1, posX, 0.5, 0)
+    btn.Position = UDim2.new(1, -12, 0.5, 0)
     btn.BackgroundColor3 = Theme.HoverFill
     btn.BackgroundTransparency = 1
     btn.AutoButtonColor = false
@@ -912,18 +400,21 @@ local function makeBarButton(parent, iconName, fallback, posX, hoverColor)
     img.Position = UDim2.new(0.5, 0, 0.5, 0)
     img.AnchorPoint = Vector2.new(0.5, 0.5)
     img.BackgroundTransparency = 1
-    img.Image = icon(iconName, fallback)
+    img.Image = icon("x")
     img.ImageColor3 = Theme.TextPrimary
     img.Parent = btn
 
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundTransparency = hoverColor and 0.85 or 0.92 }):Play()
-        if hoverColor then
-            TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = hoverColor }):Play()
-        end
+        TweenService:Create(btn, TweenInfo.new(0.1), {
+            BackgroundTransparency = 0.85,
+            BackgroundColor3 = Theme.Close
+        }):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundTransparency = 1, BackgroundColor3 = Theme.HoverFill }):Play()
+        TweenService:Create(btn, TweenInfo.new(0.1), {
+            BackgroundTransparency = 1,
+            BackgroundColor3 = Theme.HoverFill
+        }):Play()
     end)
 
     return btn
@@ -933,7 +424,7 @@ end
 function Library:_createTopBar()
     self.topBar = Instance.new("Frame")
     self.topBar.Name = Shield:RandomName()
-    self.topBar.Size = UDim2.new(1, 0, 0, 55)
+    self.topBar.Size = UDim2.new(1, 0, 0, Metrics.TopBarHeight)
     self.topBar.BackgroundTransparency = 1
     self.topBar.BorderSizePixel = 0
     self.topBar.ZIndex = 5
@@ -946,60 +437,15 @@ function Library:_createTopBar()
     topBarLine.BorderSizePixel = 0
     topBarLine.Parent = self.topBar
 
-    local rightReserve = self.IsMobile and 190 or 250
-
-    local textContainer = Instance.new("Frame")
-    textContainer.Size = UDim2.new(1, -rightReserve, 1, 0)
-    textContainer.Position = UDim2.new(0, 18, 0, 0)
-    textContainer.BackgroundTransparency = 1
-    textContainer.BorderSizePixel = 0
-    textContainer.Parent = self.topBar
-
-    self.titleLabel = Instance.new("TextLabel")
-    self.titleLabel.Size = UDim2.new(1, 0, 0, 22)
-    self.titleLabel.Position = UDim2.new(0, 0, 0, 10)
-    self.titleLabel.BackgroundTransparency = 1
-    self.titleLabel.TextColor3 = Theme.TitleText
-    self.titleLabel.TextSize = 18
-    self.titleLabel.Font = FONT_BOLD
-    self.titleLabel.Text = self.Title
-    self.titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    self.titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    self.titleLabel.Parent = textContainer
-
-    self.subtitleLabel = Instance.new("TextLabel")
-    self.subtitleLabel.Size = UDim2.new(1, 0, 0, 14)
-    self.subtitleLabel.Position = UDim2.new(0, 0, 0, 29)
-    self.subtitleLabel.BackgroundTransparency = 1
-    self.subtitleLabel.TextColor3 = Theme.TextSecondary
-    self.subtitleLabel.TextSize = 11
-    self.subtitleLabel.Font = FONT
-    self.subtitleLabel.Text = self.SubTitle
-    self.subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    self.subtitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    self.subtitleLabel.Parent = textContainer
-
-    local closeBtn = makeBarButton(self.topBar, "x", "rbxassetid://11419472304", -12, Theme.Close)
+    local closeBtn = makeCloseButton(self.topBar)
     table.insert(self.connections, closeBtn.MouseButton1Click:Connect(function()
         self:Destroy()
     end))
 
-    if not self.IsMobile then
-        local minBtn = makeBarButton(self.topBar, "minus", "rbxassetid://11419472304", -44, nil)
-        table.insert(self.connections, minBtn.MouseButton1Click:Connect(function()
-            self:SetMinimized(true)
-        end))
-    else
-        local minBtn = makeBarButton(self.topBar, "minus", "rbxassetid://11419472304", -44, nil)
-        table.insert(self.connections, minBtn.MouseButton1Click:Connect(function()
-            self:SetMinimized(true)
-        end))
-    end
-
     local searchWidth = self.IsMobile and 110 or 160
     local searchContainer = Instance.new("Frame")
     searchContainer.Size = UDim2.new(0, searchWidth, 0, 28)
-    searchContainer.Position = UDim2.new(1, -80, 0.5, 0)
+    searchContainer.Position = UDim2.new(1, -48, 0.5, 0)
     searchContainer.AnchorPoint = Vector2.new(1, 0.5)
     searchContainer.BackgroundColor3 = Theme.HoverFill
     searchContainer.BackgroundTransparency = 0.96
@@ -1034,6 +480,37 @@ function Library:_createTopBar()
     self.searchBox.ClearTextOnFocus = false
     self.searchBox.ClipsDescendants = true
     self.searchBox.Parent = searchContainer
+
+    local textContainer = Instance.new("Frame")
+    textContainer.Size = UDim2.new(1, -(searchWidth + 48 + 24), 1, 0)
+    textContainer.Position = UDim2.new(0, 18, 0, 0)
+    textContainer.BackgroundTransparency = 1
+    textContainer.BorderSizePixel = 0
+    textContainer.Parent = self.topBar
+
+    self.titleLabel = Instance.new("TextLabel")
+    self.titleLabel.Size = UDim2.new(1, 0, 0, 22)
+    self.titleLabel.Position = UDim2.new(0, 0, 0, 10)
+    self.titleLabel.BackgroundTransparency = 1
+    self.titleLabel.TextColor3 = Theme.TitleText
+    self.titleLabel.TextSize = 18
+    self.titleLabel.Font = FONT_BOLD
+    self.titleLabel.Text = self.Title
+    self.titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    self.titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    self.titleLabel.Parent = textContainer
+
+    self.subtitleLabel = Instance.new("TextLabel")
+    self.subtitleLabel.Size = UDim2.new(1, 0, 0, 14)
+    self.subtitleLabel.Position = UDim2.new(0, 0, 0, 29)
+    self.subtitleLabel.BackgroundTransparency = 1
+    self.subtitleLabel.TextColor3 = Theme.TextSecondary
+    self.subtitleLabel.TextSize = 11
+    self.subtitleLabel.Font = FONT
+    self.subtitleLabel.Text = self.SubTitle
+    self.subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    self.subtitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    self.subtitleLabel.Parent = textContainer
 
     table.insert(self.connections, self.searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         self:_filterElements(self.searchBox.Text)
@@ -1071,14 +548,15 @@ end
 
 -- // Conteúdo Janela
 function Library:_createContent()
-    local tabWidth = self.IsMobile and 120 or 150
+    local tabWidth = self.IsMobile and Metrics.TabWidthMobile or Metrics.TabWidthPC
 
     self.contentFrame = Instance.new("Frame")
-    self.contentFrame.Size = UDim2.new(1, 0, 1, -55)
-    self.contentFrame.Position = UDim2.new(0, 0, 0, 55)
+    self.contentFrame.Size = UDim2.new(1, 0, 1, -Metrics.TopBarHeight)
+    self.contentFrame.Position = UDim2.new(0, 0, 0, Metrics.TopBarHeight)
     self.contentFrame.BackgroundTransparency = 1
     self.contentFrame.BorderSizePixel = 0
     self.contentFrame.ZIndex = 1
+    self.contentFrame.ClipsDescendants = true
     self.contentFrame.Parent = self.mainPanel
 
     self.tabBar = Instance.new("ScrollingFrame")
@@ -1091,13 +569,13 @@ function Library:_createContent()
     self.tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
     self.tabBar.Parent = self.contentFrame
 
-    local sectionLine = Instance.new("Frame")
-    sectionLine.Size = UDim2.new(0, 1, 1, 0)
-    sectionLine.Position = UDim2.new(0, tabWidth - 1, 0, 0)
-    sectionLine.BackgroundColor3 = Theme.Line
-    sectionLine.BorderSizePixel = 0
-    sectionLine.ZIndex = 2
-    sectionLine.Parent = self.contentFrame
+    self.tabDivider = Instance.new("Frame")
+    self.tabDivider.Size = UDim2.new(0, 1, 1, 0)
+    self.tabDivider.Position = UDim2.new(0, tabWidth - 1, 0, 0)
+    self.tabDivider.BackgroundColor3 = Theme.Line
+    self.tabDivider.BorderSizePixel = 0
+    self.tabDivider.ZIndex = 2
+    self.tabDivider.Parent = self.contentFrame
 
     local tabList = Instance.new("UIListLayout")
     tabList.Padding = UDim.new(0, 2)
@@ -1269,6 +747,7 @@ function Library:CreateTab(options)
         header.TextColor3 = Theme.TextHeader
         header.TextXAlignment = Enum.TextXAlignment.Left
         header.TextYAlignment = Enum.TextYAlignment.Center
+        header.TextTruncate = Enum.TextTruncate.AtEnd
         header.Parent = headerContainer
 
         self.sections[sectionName] = headerContainer
@@ -1341,6 +820,7 @@ function Library:CreateTab(options)
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
     page.ScrollBarThickness = 2
+    page.ScrollingDirection = Enum.ScrollingDirection.Y
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
     page.ClipsDescendants = true
@@ -1348,57 +828,83 @@ function Library:CreateTab(options)
     page.Parent = self.tabContent
 
     local pagePadding = Instance.new("UIPadding")
-    pagePadding.PaddingTop = UDim.new(0, 12)
-    pagePadding.PaddingLeft = UDim.new(0, 12)
-    pagePadding.PaddingRight = UDim.new(0, 12)
-    pagePadding.PaddingBottom = UDim.new(0, 12)
+    pagePadding.PaddingTop = UDim.new(0, Metrics.PagePadding)
+    pagePadding.PaddingLeft = UDim.new(0, Metrics.PagePadding)
+    pagePadding.PaddingRight = UDim.new(0, Metrics.PagePadding + 4)
+    pagePadding.PaddingBottom = UDim.new(0, Metrics.PagePadding)
     pagePadding.Parent = page
 
     local columns = Instance.new("Frame")
     columns.Size = UDim2.new(1, 0, 0, 0)
-    columns.AutomaticSize = Enum.AutomaticSize.Y
     columns.BackgroundTransparency = 1
     columns.BorderSizePixel = 0
     columns.Parent = page
 
-    local function makeColumn(name, xScale, xOffset)
-        local col = Instance.new("Frame")
-        col.Name = name
-        col.Size = UDim2.new(0.5, -4, 0, 0)
-        col.Position = UDim2.new(xScale, xOffset, 0, 0)
-        col.AutomaticSize = Enum.AutomaticSize.Y
-        col.BackgroundTransparency = 1
-        col.BorderSizePixel = 0
-        col.Parent = columns
+    local leftColumn = Instance.new("Frame")
+    leftColumn.Name = "Left"
+    leftColumn.BackgroundTransparency = 1
+    leftColumn.BorderSizePixel = 0
+    leftColumn.AutomaticSize = Enum.AutomaticSize.Y
+    leftColumn.Parent = columns
 
-        local layout = Instance.new("UIListLayout")
-        layout.Padding = UDim.new(0, 8)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Parent = col
+    local leftLayout = Instance.new("UIListLayout")
+    leftLayout.Padding = UDim.new(0, Metrics.ColumnGap)
+    leftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    leftLayout.Parent = leftColumn
 
-        return col
+    local rightColumn = Instance.new("Frame")
+    rightColumn.Name = "Right"
+    rightColumn.BackgroundTransparency = 1
+    rightColumn.BorderSizePixel = 0
+    rightColumn.AutomaticSize = Enum.AutomaticSize.Y
+    rightColumn.Parent = columns
+
+    local rightLayout = Instance.new("UIListLayout")
+    rightLayout.Padding = UDim.new(0, Metrics.ColumnGap)
+    rightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    rightLayout.Parent = rightColumn
+
+    -- // Reorganizar Colunas
+    local function relayout()
+        local totalWidth = columns.AbsoluteSize.X
+        if totalWidth <= 0 then
+            totalWidth = math.max(0, (window.currentWidth or Metrics.MinWidth) - (window.tabWidth or Metrics.TabWidthPC) - Metrics.PagePadding * 2 - 4)
+        end
+
+        local stacked = window.IsMobile or totalWidth < 300
+        tabData.stacked = stacked
+
+        local leftH = leftLayout.AbsoluteContentSize.Y
+        local rightH = rightLayout.AbsoluteContentSize.Y
+
+        if stacked then
+            leftColumn.Size = UDim2.new(1, 0, 0, leftH)
+            leftColumn.Position = UDim2.new(0, 0, 0, 0)
+            local offset = leftH + ((leftH > 0 and rightH > 0) and Metrics.ColumnGap or 0)
+            rightColumn.Size = UDim2.new(1, 0, 0, rightH)
+            rightColumn.Position = UDim2.new(0, 0, 0, offset)
+            columns.Size = UDim2.new(1, 0, 0, offset + rightH)
+        else
+            local colWidth = math.floor((totalWidth - Metrics.ColumnGap) / 2)
+            leftColumn.Size = UDim2.new(0, colWidth, 0, leftH)
+            leftColumn.Position = UDim2.new(0, 0, 0, 0)
+            rightColumn.Size = UDim2.new(0, colWidth, 0, rightH)
+            rightColumn.Position = UDim2.new(0, colWidth + Metrics.ColumnGap, 0, 0)
+            columns.Size = UDim2.new(1, 0, 0, math.max(leftH, rightH))
+        end
     end
 
-    local leftColumn = makeColumn("Left", 0, 0)
-    local rightColumn = makeColumn("Right", 0.5, 4)
+    table.insert(self.connections, columns:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout))
+    table.insert(self.connections, leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(relayout))
+    table.insert(self.connections, rightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(relayout))
 
-    if self.IsMobile then
-        leftColumn.Size = UDim2.new(1, 0, 0, 0)
-        rightColumn.Size = UDim2.new(1, 0, 0, 0)
-        rightColumn.Position = UDim2.new(0, 0, 0, 0)
-
-        local stack = Instance.new("UIListLayout")
-        stack.Padding = UDim.new(0, 8)
-        stack.SortOrder = Enum.SortOrder.LayoutOrder
-        stack.Parent = columns
-        leftColumn.LayoutOrder = 1
-        rightColumn.LayoutOrder = 2
-    end
-
+    tabData.relayout = relayout
     tabData.button = button
     tabData.page = page
     tabData.leftColumn = leftColumn
     tabData.rightColumn = rightColumn
+
+    relayout()
 
     -- // Visual Tab
     local function updateTabVisuals(isSelected)
@@ -1420,6 +926,9 @@ function Library:CreateTab(options)
             Position = isSelected and UDim2.new(0, 2, 0.5, -7) or UDim2.new(0, 2, 0.5, 0),
             BackgroundTransparency = isSelected and 0 or 1
         }):Play()
+        if isSelected then
+            task.defer(relayout)
+        end
     end
 
     table.insert(self.connections, button.MouseEnter:Connect(function()
@@ -1495,6 +1004,7 @@ function Library:CreateTab(options)
         titleLabel.TextSize = 11
         titleLabel.TextColor3 = Theme.TextHeader
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
         titleLabel.LayoutOrder = 0
         titleLabel.Parent = sectionFrame
 
@@ -1562,24 +1072,33 @@ function Library:CreateTab(options)
 
         -- // Criar Toggle
         function sectionData:CreateToggle(opts)
-            return wrapElement("Checkbox", opts)
+            sectionData.elementCount = sectionData.elementCount + 1
+            local api, holder = CreateCheckbox(sectionFrame, sectionData.elementCount + 1, window, opts)
+            local label = type(opts) == "table" and (opts.title or opts.name) or tostring(opts)
+            Elements.RegisterSearchEntry(label, holder)
+            return api
         end
+
         -- // Criar Button
         function sectionData:CreateButton(opts)
             return wrapElement("Button", opts)
         end
+
         -- // Criar Slider
         function sectionData:CreateSlider(opts)
             return wrapElement("Slider", opts)
         end
+
         -- // Criar Dropdown
         function sectionData:CreateDropdown(opts)
             return wrapElement("Dropdown", opts)
         end
+
         -- // Criar ColorPicker
         function sectionData:CreateColorPicker(opts)
             return wrapElement("ColorPicker", opts)
         end
+
         -- // Criar Paragraph
         function sectionData:CreateParagraph(opts)
             return wrapElement("Paragraph", opts)
@@ -1606,5 +1125,6 @@ Library.Notify = Notify
 Library.ICONS = ICONS
 Library.Elements = Elements
 Library.Theme = Theme
+Library.Metrics = Metrics
 
 return Library
