@@ -1,14 +1,18 @@
 # Codywas LIbrarys
 
 ```md
--- Librarys Codywas
+-- // Games
 local Librarys = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/CodywasLIbrarys.luau"))()
 
--- Window
-local win = Librarys.new("Codywas", "by rip_sheldoohz | V1.0")
+local Window = Librarys:CreateWindow({
+    Title = "CODY WAS [Midnight Chasers]",
+    SubTitle = "by rip_sheldoohz",
+    Size = UDim2.fromOffset(550, 350),
+    MinimizeKey = Enum.KeyCode.RightShift,
+})
 
 -- Tab Checkbox
-local ElementsTab = win:CreateTab({
+local ElementsTab = Window:CreateTab({
     tab = "CheckBox",
     section = "Librarys",
     icon = "check-square"
@@ -114,7 +118,7 @@ local estado = toggle1:Get()
 local bind = toggle3:GetKeybind()
 
 -- Tab Button
-local ButtonTab = win:CreateTab({
+local ButtonTab = Window:CreateTab({
     tab = "Button",
     section = "Librarys",
     icon = "mouse-pointer"
@@ -153,7 +157,7 @@ btn3:SetDisabled(false)
 btn1:Fire()
 
 -- Tab Slider
-local SliderTab = win:CreateTab({
+local SliderTab = Window:CreateTab({
     tab = "Slider",
     section = "Librarys",
     icon = "sliders"
@@ -247,7 +251,7 @@ sliderCompleto:SetDisabled(false)
 local atual = sliderCompleto:Get()
 
 -- Tab Dropdown
-local DropTab = win:CreateTab({
+local DropTab = Window:CreateTab({
     tab = "Dropdown",
     section = "Librarys",
     icon = "list"
@@ -312,7 +316,7 @@ local dropCompleto = DropSection:CreateDropdown({
 })
 
 -- Tab ColorPicker
-local ColorTab = win:CreateTab({
+local ColorTab = Window:CreateTab({
     tab = "ColorPicker",
     section = "Librarys",
     icon = "palette"
@@ -371,7 +375,7 @@ local cpCompleto = ColorSection:CreateColorPicker({
 })
 
 -- Tab Paragraph
-local ParaTab = win:CreateTab({
+local ParaTab = Window:CreateTab({
     tab = "Status",
     section = "Librarys",
     icon = "activity"
