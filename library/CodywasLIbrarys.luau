@@ -29,7 +29,10 @@ local Metrics = {
     PagePadding = 12,
     TabWidthPC = 150,
     TabWidthMobile = 110,
-    NarrowBreakpoint = 460
+    NarrowBreakpoint = 460,
+    StackBreakpoint = 300,
+    ShortBreakpoint = 320,
+    PagePaddingShort = 6
 }
 
 -- // Ícones
@@ -842,18 +845,27 @@ end
 function Library:_applySize()
     if not self.mainPanel then return end
     local width, height = self:_computeSize()
-    self.currentWidth = width
     self.mainPanel.Size = UDim2.new(0, width, 0, height)
     self:_applyLayoutMode()
 end
 
 -- // Modo Layout
 function Library:_applyLayoutMode()
+    if not self.mainPanel then return end
+
+    local panelSize = self.mainPanel.AbsoluteSize
+    local width = panelSize.X > 0 and panelSize.X or (self.currentWidth or self.BaseWidth)
+    local height = panelSize.Y > 0 and panelSize.Y or (self.currentHeight or self.BaseHeight)
+    self.currentWidth = width
+    self.currentHeight = height
+
     local tabWidth = self.IsMobile and Metrics.TabWidthMobile or Metrics.TabWidthPC
-    if self.currentWidth and self.currentWidth < Metrics.NarrowBreakpoint then
+    if width < Metrics.NarrowBreakpoint then
         tabWidth = Metrics.TabWidthMobile
     end
     self.tabWidth = tabWidth
+    self.contentWidth = width - tabWidth - Metrics.PagePadding * 2
+    self.compact = height < Metrics.ShortBreakpoint
 
     if self.tabBar then
         self.tabBar.Size = UDim2.new(0, tabWidth, 1, 0)
@@ -895,6 +907,7 @@ function Library:_init()
 
     local width, height = self:_computeSize()
     self.currentWidth = width
+    self.currentHeight = height
 
     self.mainPanel = Instance.new("Frame")
     self.mainPanel.Name = Shield:RandomName()
@@ -921,12 +934,22 @@ function Library:_init()
     self:_setupDrag()
     self:_applyLayoutMode()
 
+    table.insert(self.connections, self.mainPanel:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        self:_applyLayoutMode()
+    end))
+
     local camera = workspace.CurrentCamera
     if camera then
         table.insert(self.connections, camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
             self:_applySize()
         end))
     end
+
+    task.defer(function()
+        if self.mainPanel then
+            self:_applyLayoutMode()
+        end
+    end)
 
     if self.IsMobile then
         self:_createToggleButton()
@@ -1352,7 +1375,7 @@ function Library:CreateTab(options)
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
-    page.ScrollBarThickness = 2
+    page.ScrollBarThickness = 0
     page.ScrollingDirection = Enum.ScrollingDirection.Y
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -1363,73 +1386,71 @@ function Library:CreateTab(options)
     local pagePadding = Instance.new("UIPadding")
     pagePadding.PaddingTop = UDim.new(0, Metrics.PagePadding)
     pagePadding.PaddingLeft = UDim.new(0, Metrics.PagePadding)
-    pagePadding.PaddingRight = UDim.new(0, Metrics.PagePadding + 4)
+    pagePadding.PaddingRight = UDim.new(0, Metrics.PagePadding)
     pagePadding.PaddingBottom = UDim.new(0, Metrics.PagePadding)
     pagePadding.Parent = page
 
     local columns = Instance.new("Frame")
+    columns.Name = "Columns"
     columns.Size = UDim2.new(1, 0, 0, 0)
+    columns.AutomaticSize = Enum.AutomaticSize.Y
     columns.BackgroundTransparency = 1
     columns.BorderSizePixel = 0
     columns.Parent = page
 
-    local leftColumn = Instance.new("Frame")
-    leftColumn.Name = "Left"
-    leftColumn.BackgroundTransparency = 1
-    leftColumn.BorderSizePixel = 0
-    leftColumn.AutomaticSize = Enum.AutomaticSize.Y
-    leftColumn.Parent = columns
+    local columnsLayout = Instance.new("UIListLayout")
+    columnsLayout.FillDirection = Enum.FillDirection.Horizontal
+    columnsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    columnsLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    columnsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    columnsLayout.Padding = UDim.new(0, Metrics.ColumnGap)
+    columnsLayout.Parent = columns
 
-    local leftLayout = Instance.new("UIListLayout")
-    leftLayout.Padding = UDim.new(0, Metrics.ColumnGap)
-    leftLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    leftLayout.Parent = leftColumn
+    -- // Criar Coluna
+    local function makeColumn(name, order)
+        local column = Instance.new("Frame")
+        column.Name = name
+        column.Size = UDim2.new(0.5, -Metrics.ColumnGap / 2, 0, 0)
+        column.AutomaticSize = Enum.AutomaticSize.Y
+        column.BackgroundTransparency = 1
+        column.BorderSizePixel = 0
+        column.LayoutOrder = order
+        column.Parent = columns
 
-    local rightColumn = Instance.new("Frame")
-    rightColumn.Name = "Right"
-    rightColumn.BackgroundTransparency = 1
-    rightColumn.BorderSizePixel = 0
-    rightColumn.AutomaticSize = Enum.AutomaticSize.Y
-    rightColumn.Parent = columns
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, Metrics.ColumnGap)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = column
 
-    local rightLayout = Instance.new("UIListLayout")
-    rightLayout.Padding = UDim.new(0, Metrics.ColumnGap)
-    rightLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    rightLayout.Parent = rightColumn
+        return column
+    end
+
+    local leftColumn = makeColumn("Left", 1)
+    local rightColumn = makeColumn("Right", 2)
 
     -- // Reorganizar Colunas
     local function relayout()
-        local totalWidth = columns.AbsoluteSize.X
-        if totalWidth <= 0 then
-            totalWidth = math.max(0, (window.currentWidth or Metrics.MinWidth) - (window.tabWidth or Metrics.TabWidthPC) - Metrics.PagePadding * 2 - 4)
-        end
-
-        local stacked = window.IsMobile or totalWidth < 300
+        local stacked = window.IsMobile or (window.contentWidth or 0) < Metrics.StackBreakpoint
         tabData.stacked = stacked
 
-        local leftH = leftLayout.AbsoluteContentSize.Y
-        local rightH = rightLayout.AbsoluteContentSize.Y
+        local padding = window.compact and Metrics.PagePaddingShort or Metrics.PagePadding
+        pagePadding.PaddingTop = UDim.new(0, padding)
+        pagePadding.PaddingLeft = UDim.new(0, padding)
+        pagePadding.PaddingRight = UDim.new(0, padding)
+        pagePadding.PaddingBottom = UDim.new(0, padding)
 
         if stacked then
-            leftColumn.Size = UDim2.new(1, 0, 0, leftH)
-            leftColumn.Position = UDim2.new(0, 0, 0, 0)
-            local offset = leftH + ((leftH > 0 and rightH > 0) and Metrics.ColumnGap or 0)
-            rightColumn.Size = UDim2.new(1, 0, 0, rightH)
-            rightColumn.Position = UDim2.new(0, 0, 0, offset)
-            columns.Size = UDim2.new(1, 0, 0, offset + rightH)
+            columnsLayout.FillDirection = Enum.FillDirection.Vertical
+            leftColumn.Size = UDim2.new(1, 0, 0, 0)
+            rightColumn.Size = UDim2.new(1, 0, 0, 0)
         else
-            local colWidth = math.floor((totalWidth - Metrics.ColumnGap) / 2)
-            leftColumn.Size = UDim2.new(0, colWidth, 0, leftH)
-            leftColumn.Position = UDim2.new(0, 0, 0, 0)
-            rightColumn.Size = UDim2.new(0, colWidth, 0, rightH)
-            rightColumn.Position = UDim2.new(0, colWidth + Metrics.ColumnGap, 0, 0)
-            columns.Size = UDim2.new(1, 0, 0, math.max(leftH, rightH))
+            columnsLayout.FillDirection = Enum.FillDirection.Horizontal
+            leftColumn.Size = UDim2.new(0.5, -Metrics.ColumnGap / 2, 0, 0)
+            rightColumn.Size = UDim2.new(0.5, -Metrics.ColumnGap / 2, 0, 0)
         end
     end
 
-    table.insert(self.connections, columns:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout))
-    table.insert(self.connections, leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(relayout))
-    table.insert(self.connections, rightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(relayout))
+    table.insert(self.connections, page:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout))
 
     tabData.relayout = relayout
     tabData.button = button
@@ -1505,7 +1526,7 @@ function Library:CreateTab(options)
         sectionFrame.BackgroundColor3 = Theme.HoverFill
         sectionFrame.BackgroundTransparency = 0.98
         sectionFrame.BorderSizePixel = 0
-        sectionFrame.ClipsDescendants = false
+        sectionFrame.ClipsDescendants = true
         sectionFrame.Parent = column
 
         local sectionCorner = Instance.new("UICorner")
@@ -1520,8 +1541,8 @@ function Library:CreateTab(options)
         local sectionPadding = Instance.new("UIPadding")
         sectionPadding.PaddingTop = UDim.new(0, 10)
         sectionPadding.PaddingBottom = UDim.new(0, 10)
-        sectionPadding.PaddingLeft = UDim.new(0, 10)
-        sectionPadding.PaddingRight = UDim.new(0, 10)
+        sectionPadding.PaddingLeft = UDim.new(0, 8)
+        sectionPadding.PaddingRight = UDim.new(0, 8)
         sectionPadding.Parent = sectionFrame
 
         local sectionLayout = Instance.new("UIListLayout")
@@ -1569,6 +1590,7 @@ function Library:CreateTab(options)
             holder.BackgroundColor3 = Theme.HoverFill
             holder.BackgroundTransparency = 0.97
             holder.BorderSizePixel = 0
+            holder.ClipsDescendants = true
             holder.LayoutOrder = sectionData.elementCount + 1
             holder.Parent = sectionFrame
 
