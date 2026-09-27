@@ -7,12 +7,22 @@
 # Created by: rip_sheldoohz
 
 [Updates]
-* bytecore
-    + Function Improvements
-    + API Improvements
-    + New Bypass
-    - Inkwell Removed
-    + New Notification
+# Inkwell
+* Improved console UI detection
+* Improved log history handling
+* Improved parameter validation
+* Fixed RenderStepped cleanup
+* Fixed progress bar issues
+* Fixed spinner cleanup
+* Improved overall stability
+- Removed unnecessary debug warnings
+- Removed comments
+- Removed unnecessary decorations
+* Fixed Developer Console access
+* Fixed progress bar limits
+* Fixed group cleanup
+* Fixed connection leaks
+
 
 [Librarys]
 + Element Improvements
