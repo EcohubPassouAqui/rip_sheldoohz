@@ -23,22 +23,18 @@ Elements.Register("Checkbox", function(section, options)
     local DESC_SIZE = 11
     local KEY_SIZE = 11
     local BOX = 18
+    local HITBOX_PAD = 10 -- expande a area de toque do quadrado sem mudar o visual
     local PILL_W = 46
     local PILL_H = 20
     local WORD_MAX = 20
     local BASE_H = 36
 
-    local tweenService = TweenService or game:GetService("TweenService")
     local userInputService = UserInputService or game:GetService("UserInputService")
     local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
     local fontRegular = FONT or Enum.Font.SourceSans
 
-    local TI_FAST = TweenInfo.new(0.1)
-    local TI_STD = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
     local connections = {}
     local destroyed = false
-    local hovering = false
     local listeningConnection
     local listenStartedAt = 0
 
@@ -179,20 +175,12 @@ Elements.Register("Checkbox", function(section, options)
     container.BackgroundTransparency = 1
     container.Parent = section.frame
 
-    local clickArea = Instance.new("TextButton")
-    clickArea.Name = "ClickArea"
-    clickArea.Size = UDim2.new(1, -rightReserve, 1, 0)
-    clickArea.BackgroundTransparency = 1
-    clickArea.Text = ""
-    clickArea.AutoButtonColor = false
-    clickArea.Selectable = false
-    clickArea.Parent = container
-
+    -- Area de texto: apenas exibe titulo/descricao, NAO ativa o checkbox
     local textFrame = Instance.new("Frame")
     textFrame.Name = "TextFrame"
-    textFrame.Size = UDim2.new(1, 0, 1, 0)
+    textFrame.Size = UDim2.new(1, -rightReserve, 1, 0)
     textFrame.BackgroundTransparency = 1
-    textFrame.Parent = clickArea
+    textFrame.Parent = container
 
     local textLayout = Instance.new("UIListLayout")
     textLayout.FillDirection = Enum.FillDirection.Vertical
@@ -235,14 +223,28 @@ Elements.Register("Checkbox", function(section, options)
         descLabel.Parent = textFrame
     end
 
+    -- Botao real do quadrado. Hitbox maior que o visual (HITBOX_PAD) pra
+    -- funcionar bem no toque, mas so ativa se clicar/tocar NELE, nao no resto.
+    local boxButton = Instance.new("TextButton")
+    boxButton.Name = "BoxButton"
+    boxButton.Size = UDim2.new(0, BOX + HITBOX_PAD * 2, 0, BOX + HITBOX_PAD * 2)
+    boxButton.Position = UDim2.new(1, 0, 0.5, 0)
+    boxButton.AnchorPoint = Vector2.new(1, 0.5)
+    boxButton.BackgroundTransparency = 1
+    boxButton.Text = ""
+    boxButton.AutoButtonColor = false
+    boxButton.Selectable = false
+    boxButton.ZIndex = 2
+    boxButton.Parent = container
+
     local box = Instance.new("Frame")
     box.Name = "Box"
     box.Size = UDim2.new(0, BOX, 0, BOX)
-    box.Position = UDim2.new(1, 0, 0.5, -BOX / 2)
-    box.AnchorPoint = Vector2.new(1, 0)
+    box.Position = UDim2.new(0.5, 0, 0.5, 0)
+    box.AnchorPoint = Vector2.new(0.5, 0.5)
     box.BackgroundColor3 = default and COLORS.Active or COLORS.Inactive
     box.BorderSizePixel = 0
-    box.Parent = container
+    box.Parent = boxButton
 
     local boxCorner = Instance.new("UICorner")
     boxCorner.CornerRadius = UDim.new(0, 4)
@@ -271,13 +273,14 @@ Elements.Register("Checkbox", function(section, options)
         keyBtn = Instance.new("TextButton")
         keyBtn.Name = "KeyBind"
         keyBtn.Size = UDim2.new(0, PILL_W, 0, PILL_H)
-        keyBtn.Position = UDim2.new(1, -(BOX + 4 + PILL_W), 0.5, -PILL_H / 2)
+        keyBtn.Position = UDim2.new(1, -(BOX + HITBOX_PAD * 2 + 4 + PILL_W), 0.5, -PILL_H / 2)
         keyBtn.AnchorPoint = Vector2.new(0, 0)
         keyBtn.BackgroundColor3 = COLORS.KeyBindBg
         keyBtn.BorderSizePixel = 0
         keyBtn.Text = ""
         keyBtn.AutoButtonColor = false
         keyBtn.Selectable = false
+        keyBtn.ZIndex = 2
         keyBtn.Parent = container
 
         local keyCorner = Instance.new("UICorner")
@@ -315,7 +318,8 @@ Elements.Register("Checkbox", function(section, options)
         container.Size = UDim2.new(1, 0, 0, totalH)
     end
 
-    local function updateVisuals(animate)
+    -- Sem tweens: aplica o estado visual instantaneamente
+    local function updateVisuals()
         if destroyed then return end
 
         local boxColor = data.state and COLORS.Active or COLORS.Inactive
@@ -330,36 +334,14 @@ Elements.Register("Checkbox", function(section, options)
             checkT = 1
         end
 
-        if animate then
-            tweenService:Create(box, TI_STD, { BackgroundColor3 = boxColor }):Play()
-            tweenService:Create(boxStroke, TI_STD, { Color = strokeColor, Thickness = 1.2 }):Play()
-            tweenService:Create(checkIcon, TI_STD, { ImageTransparency = checkT, ImageColor3 = COLORS.Icon }):Play()
-            tweenService:Create(label, TI_STD, { TextColor3 = textColor }):Play()
-        else
-            box.BackgroundColor3 = boxColor
-            boxStroke.Color = strokeColor
-            boxStroke.Thickness = 1.2
-            checkIcon.ImageTransparency = checkT
-            checkIcon.ImageColor3 = COLORS.Icon
-            label.TextColor3 = textColor
-        end
+        box.BackgroundColor3 = boxColor
+        boxStroke.Color = strokeColor
+        boxStroke.Thickness = 1.2
+        checkIcon.ImageTransparency = checkT
+        checkIcon.ImageColor3 = COLORS.Icon
+        label.TextColor3 = textColor
 
-        clickArea.Active = not data.disabled
-    end
-
-    local function applyHover(state)
-        if destroyed or data.disabled then return end
-        if state then
-            tweenService:Create(boxStroke, TI_STD, { Color = COLORS.Active, Thickness = 1.4 }):Play()
-            if not data.state then
-                tweenService:Create(checkIcon, TI_STD, { ImageTransparency = 0.55, ImageColor3 = COLORS.Active }):Play()
-            end
-        else
-            tweenService:Create(boxStroke, TI_STD, { Color = data.state and COLORS.Active or COLORS.Line, Thickness = 1.2 }):Play()
-            if not data.state then
-                tweenService:Create(checkIcon, TI_STD, { ImageTransparency = 1, ImageColor3 = COLORS.Icon }):Play()
-            end
-        end
+        boxButton.Active = not data.disabled
     end
 
     local function fireCallback(value)
@@ -380,15 +362,14 @@ Elements.Register("Checkbox", function(section, options)
     local function toggle()
         if destroyed or data.disabled then return end
         data.state = not data.state
-        updateVisuals(true)
-        if hovering then applyHover(true) end
+        updateVisuals()
         fireCallback(data.state)
     end
 
     local function resetKeyVisual()
         if not keyBtn then return end
-        tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindBg }):Play()
-        tweenService:Create(keyStroke, TI_FAST, { Color = COLORS.KeyBindBorder }):Play()
+        keyBtn.BackgroundColor3 = COLORS.KeyBindBg
+        keyStroke.Color = COLORS.KeyBindBorder
         keyLabel.Text = getKeyName(data.keybind)
         keyLabel.TextColor3 = COLORS.KeyBindText
     end
@@ -407,8 +388,8 @@ Elements.Register("Checkbox", function(section, options)
         data.listening = true
         listenStartedAt = os.clock()
 
-        tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindListening }):Play()
-        tweenService:Create(keyStroke, TI_FAST, { Color = COLORS.KeyBindListenText }):Play()
+        keyBtn.BackgroundColor3 = COLORS.KeyBindListening
+        keyStroke.Color = COLORS.KeyBindListenText
         keyLabel.Text = "..."
         keyLabel.TextColor3 = COLORS.KeyBindListenText
 
@@ -440,6 +421,7 @@ Elements.Register("Checkbox", function(section, options)
         end)
     end
 
+    -- Toggle via keybind global (funciona igual antes)
     if hasKeybind then
         connect(userInputService.InputBegan, function(input, gp)
             if destroyed or gp or data.disabled or data.listening then return end
@@ -451,30 +433,20 @@ Elements.Register("Checkbox", function(section, options)
         end)
     end
 
-    connect(clickArea.MouseButton1Click, toggle)
+    -- Ativa o checkbox APENAS pelo quadrado (boxButton), com hitbox
+    -- ampliada para toque. Funciona com mouse (PC) e touch (mobile) porque
+    -- MouseButton1Click do TextButton dispara em ambos automaticamente.
+    connect(boxButton.MouseButton1Click, toggle)
 
-    connect(clickArea.MouseEnter, function()
-        hovering = true
-        applyHover(true)
-    end)
-
-    connect(clickArea.MouseLeave, function()
-        hovering = false
-        applyHover(false)
+    -- Suporte extra explicito a touch (alguns executores/clientes mobile
+    -- nao repassam MouseButton1Click corretamente para TextButton)
+    connect(boxButton.TouchTap, function()
+        toggle()
     end)
 
     if hasKeybind then
         connect(keyBtn.MouseButton1Click, enterListenMode)
-
-        connect(keyBtn.MouseEnter, function()
-            if data.disabled or data.listening then return end
-            tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindHover }):Play()
-        end)
-
-        connect(keyBtn.MouseLeave, function()
-            if data.listening then return end
-            tweenService:Create(keyBtn, TI_FAST, { BackgroundColor3 = COLORS.KeyBindBg }):Play()
-        end)
+        connect(keyBtn.TouchTap, enterListenMode)
     end
 
     connect(textLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
@@ -484,7 +456,7 @@ Elements.Register("Checkbox", function(section, options)
     end
 
     resizeContainer()
-    updateVisuals(false)
+    updateVisuals()
     if default then fireCallback(default) end
 
     function data:Set(value)
@@ -492,7 +464,7 @@ Elements.Register("Checkbox", function(section, options)
         value = value == true
         if data.state == value then return end
         data.state = value
-        updateVisuals(true)
+        updateVisuals()
         fireCallback(value)
     end
 
@@ -510,8 +482,7 @@ Elements.Register("Checkbox", function(section, options)
         if data.disabled and data.listening then
             stopListening()
         end
-        updateVisuals(true)
-        if hovering then applyHover(true) end
+        updateVisuals()
     end
 
     function data:SetTitle(newTitle)
