@@ -3,10 +3,7 @@ Elements.Register("Slider", function(section, options)
     options = type(options) == "table" and options or {}
 
     local COLORS = {
-        Active = Color3.fromRGB(255, 255, 255),
-        Inactive = Color3.fromRGB(20, 20, 20),
         TextActive = Color3.fromRGB(255, 255, 255),
-        TextInactive = Color3.fromRGB(105, 105, 115),
         TextDisabled = Color3.fromRGB(70, 70, 78),
         Line = Color3.fromRGB(32, 32, 32),
         Track = Color3.fromRGB(30, 30, 30),
@@ -20,20 +17,24 @@ Elements.Register("Slider", function(section, options)
         ThumbBorder = Color3.fromRGB(200, 200, 200),
     }
 
-    local TITLE_SIZE = 13
-    local DESC_SIZE = 11
-    local BADGE_SIZE = 11
-    local TRACK_H = 6
-    local THUMB_SIZE = 14
-    local THUMB_HOVER = 3
-    local BASE_H = 36
-    local WORD_MAX = 20
-    local BADGE_MIN_W = 40
-
     local tweenService = TweenService or game:GetService("TweenService")
     local userInputService = UserInputService or game:GetService("UserInputService")
     local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
     local fontRegular = FONT or Enum.Font.SourceSans
+
+    local MOBILE = userInputService.TouchEnabled and not userInputService.KeyboardEnabled
+
+    local TITLE_SIZE = MOBILE and 14 or 13
+    local DESC_SIZE = MOBILE and 12 or 11
+    local BADGE_SIZE = MOBILE and 12 or 11
+    local TRACK_H = MOBILE and 8 or 6
+    local THUMB_SIZE = MOBILE and 20 or 14
+    local THUMB_HOVER = MOBILE and 4 or 3
+    local TRACK_PAD = MOBILE and 18 or 6
+    local BASE_H = MOBILE and 44 or 36
+    local TOP_H = MOBILE and 20 or 16
+    local WORD_MAX = 20
+    local BADGE_MIN_W = 40
 
     local TI_FILL = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local TI_HOVER = TweenInfo.new(0.1)
@@ -42,6 +43,9 @@ Elements.Register("Slider", function(section, options)
     local destroyed = false
     local dragging = false
     local hovering = false
+    local activeInput
+    local lockedScroll
+    local lockedScrollWas = true
 
     local function connect(signal, fn)
         local conn = signal:Connect(fn)
@@ -51,7 +55,7 @@ Elements.Register("Slider", function(section, options)
 
     local function warnNotify(msg)
         pcall(function()
-            Notify({ Title = "CodyWas | Slider", Description = msg, Duration = 5 })
+            Notify({ Title = "Ecohub | Slider", Description = msg, Duration = 5 })
         end)
     end
 
@@ -84,6 +88,10 @@ Elements.Register("Slider", function(section, options)
     local function isPointerInput(input)
         return input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch
+    end
+
+    local function usingTouch()
+        return userInputService:GetLastInputType() == Enum.UserInputType.Touch
     end
 
     local title = tostring(options.title or options.Name or "Slider")
@@ -139,7 +147,7 @@ Elements.Register("Slider", function(section, options)
 
     local topRow = Instance.new("Frame")
     topRow.Name = "TopRow"
-    topRow.Size = UDim2.new(1, 0, 0, 16)
+    topRow.Size = UDim2.new(1, 0, 0, TOP_H)
     topRow.BackgroundTransparency = 1
     topRow.LayoutOrder = 0
     topRow.Parent = container
@@ -226,7 +234,7 @@ Elements.Register("Slider", function(section, options)
 
     local trackWrapper = Instance.new("Frame")
     trackWrapper.Name = "TrackWrapper"
-    trackWrapper.Size = UDim2.new(1, 0, 0, THUMB_SIZE + 6)
+    trackWrapper.Size = UDim2.new(1, 0, 0, THUMB_SIZE + TRACK_PAD)
     trackWrapper.BackgroundTransparency = 1
     trackWrapper.LayoutOrder = 2
     trackWrapper.Parent = container
@@ -292,6 +300,21 @@ Elements.Register("Slider", function(section, options)
     clickArea.Selectable = false
     clickArea.ZIndex = 5
     clickArea.Parent = trackWrapper
+
+    local function lockScroll(lock)
+        if lock then
+            if lockedScroll then return end
+            local parent = container:FindFirstAncestorWhichIsA("ScrollingFrame")
+            if parent then
+                lockedScroll = parent
+                lockedScrollWas = parent.ScrollingEnabled
+                parent.ScrollingEnabled = false
+            end
+        elseif lockedScroll then
+            lockedScroll.ScrollingEnabled = lockedScrollWas
+            lockedScroll = nil
+        end
+    end
 
     local function resizeContainer()
         if destroyed then return end
@@ -370,33 +393,43 @@ Elements.Register("Slider", function(section, options)
     local function stopDragging()
         if not dragging then return end
         dragging = false
+        activeInput = nil
+        lockScroll(false)
         updateThumbSize()
     end
 
     connect(clickArea.InputBegan, function(input)
-        if destroyed or data.disabled then return end
+        if destroyed or data.disabled or dragging then return end
         if isPointerInput(input) then
+            activeInput = input
             dragging = true
+            lockScroll(true)
             updateThumbSize()
             setFromAlpha(getAlphaFromX(input.Position.X), true)
         end
     end)
 
     connect(userInputService.InputChanged, function(input)
-        if destroyed or not dragging then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch then
-            setFromAlpha(getAlphaFromX(input.Position.X), false)
+        if destroyed or not dragging or not activeInput then return end
+        if activeInput.UserInputType == Enum.UserInputType.Touch then
+            if input ~= activeInput then return end
+        elseif input.UserInputType ~= Enum.UserInputType.MouseMovement then
+            return
         end
+        setFromAlpha(getAlphaFromX(input.Position.X), false)
     end)
 
     connect(userInputService.InputEnded, function(input)
-        if isPointerInput(input) then
+        if not dragging or not activeInput then return end
+        if input == activeInput
+        or (activeInput.UserInputType == Enum.UserInputType.MouseButton1
+            and input.UserInputType == Enum.UserInputType.MouseButton1) then
             stopDragging()
         end
     end)
 
     connect(clickArea.MouseEnter, function()
+        if usingTouch() then return end
         hovering = true
         updateThumbSize()
     end)
@@ -494,6 +527,8 @@ Elements.Register("Slider", function(section, options)
         if destroyed then return end
         destroyed = true
         dragging = false
+        activeInput = nil
+        lockScroll(false)
         for _, conn in ipairs(connections) do
             conn:Disconnect()
         end

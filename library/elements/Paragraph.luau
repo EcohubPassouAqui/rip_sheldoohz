@@ -11,19 +11,22 @@ Elements.Register("Paragraph", function(section, options)
         ThumbBg = Color3.fromRGB(24, 24, 24),
     }
 
-    local TITLE_SIZE = 12
-    local DESC_SIZE = 10
-    local THUMB_SIZE = 36
+    local players = Players or game:GetService("Players")
+    local userInputService = UserInputService or game:GetService("UserInputService")
+    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
+    local fontRegular = FONT or Enum.Font.SourceSans
+
+    local MOBILE = userInputService.TouchEnabled and not userInputService.KeyboardEnabled
+
+    local TITLE_SIZE = MOBILE and 13 or 12
+    local DESC_SIZE = MOBILE and 11 or 10
+    local THUMB_SIZE = MOBILE and 40 or 36
     local PADDING_X = 0
     local PADDING_Y = 10
     local THUMB_GAP = 10
     local MIN_HEIGHT = 40
-    local UPDATE_INTERVAL = 3
+    local UPDATE_INTERVAL = MOBILE and 5 or 3
     local WORD_MAX = 30
-
-    local players = Players or game:GetService("Players")
-    local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
-    local fontRegular = FONT or Enum.Font.SourceSans
 
     local destroyed = false
     local liveToken = 0
@@ -31,7 +34,7 @@ Elements.Register("Paragraph", function(section, options)
 
     local function warnf(msg)
         pcall(function()
-            Notify({ Title = "CodyWas | Paragraph", Description = msg, Duration = 5 })
+            Notify({ Title = "Ecohub | Paragraph", Description = msg, Duration = 5 })
         end)
     end
 
@@ -183,6 +186,20 @@ Elements.Register("Paragraph", function(section, options)
     descLabel.Visible = description ~= ""
     descLabel.Parent = textFrame
 
+    local function isShown()
+        local node = container
+        while node do
+            if node:IsA("ScreenGui") then
+                return node.Enabled
+            end
+            if node:IsA("GuiObject") and not node.Visible then
+                return false
+            end
+            node = node.Parent
+        end
+        return false
+    end
+
     local function layoutThumbnail(hasThumb)
         if hasThumb then
             local offset = THUMB_SIZE + THUMB_GAP
@@ -233,10 +250,12 @@ Elements.Register("Paragraph", function(section, options)
 
         task.spawn(function()
             while not destroyed and liveToken == myToken do
-                local img = fetchUserThumb(userId)
-                if destroyed or liveToken ~= myToken then return end
-                if img and thumbImage.Image ~= img then
-                    thumbImage.Image = img
+                if thumbImage.Image == "" or isShown() then
+                    local img = fetchUserThumb(userId)
+                    if destroyed or liveToken ~= myToken then return end
+                    if img and thumbImage.Image ~= img then
+                        thumbImage.Image = img
+                    end
                 end
                 task.wait(UPDATE_INTERVAL)
             end

@@ -5,6 +5,7 @@ Elements.Register("Button", function(section, options)
     local COLORS = {
         Background = Color3.fromRGB(20, 20, 20),
         BackgroundHover = Color3.fromRGB(32, 32, 32),
+        BackgroundPressed = Color3.fromRGB(42, 42, 48),
         Border = Color3.fromRGB(40, 40, 40),
         BorderHover = Color3.fromRGB(70, 70, 80),
         TextActive = Color3.fromRGB(220, 220, 220),
@@ -12,19 +13,23 @@ Elements.Register("Button", function(section, options)
         DescriptionText = Color3.fromRGB(100, 100, 110),
     }
 
-    local TITLE_SIZE = 13
-    local DESC_SIZE = 11
-    local WORD_MAX = 20
-    local BASE_H = 30
-    local TWEEN_INFO = TweenInfo.new(0.1)
-
     local tweenService = TweenService or game:GetService("TweenService")
+    local userInputService = UserInputService or game:GetService("UserInputService")
     local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
     local fontRegular = FONT or Enum.Font.SourceSans
+
+    local MOBILE = userInputService.TouchEnabled and not userInputService.KeyboardEnabled
+
+    local TITLE_SIZE = MOBILE and 14 or 13
+    local DESC_SIZE = MOBILE and 12 or 11
+    local WORD_MAX = 20
+    local BASE_H = MOBILE and 40 or 30
+    local TWEEN_INFO = TweenInfo.new(0.1)
 
     local connections = {}
     local destroyed = false
     local hovering = false
+    local pressed = false
 
     local function connect(signal, fn)
         local conn = signal:Connect(fn)
@@ -34,7 +39,7 @@ Elements.Register("Button", function(section, options)
 
     local function warnNotify(msg)
         pcall(function()
-            Notify({ Title = "CodyWas | Button", Description = msg, Duration = 5 })
+            Notify({ Title = "Ecohub | Button", Description = msg, Duration = 5 })
         end)
     end
 
@@ -53,6 +58,15 @@ Elements.Register("Button", function(section, options)
             table.insert(lines, table.concat(result, " "))
         end
         return table.concat(lines, "\n")
+    end
+
+    local function isPointerInput(input)
+        return input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch
+    end
+
+    local function usingTouch()
+        return userInputService:GetLastInputType() == Enum.UserInputType.Touch
     end
 
     local title = tostring(options.title or options.Name or "Button")
@@ -158,10 +172,18 @@ Elements.Register("Button", function(section, options)
         container.Size = UDim2.new(1, 0, 0, totalH)
     end
 
-    local function tweenHover(state)
+    local function updateState()
         if destroyed then return end
-        local bg = state and COLORS.BackgroundHover or COLORS.Background
-        local border = state and COLORS.BorderHover or COLORS.Border
+        local live = not data.disabled
+        local bg = COLORS.Background
+        local border = COLORS.Border
+        if live and pressed then
+            bg = COLORS.BackgroundPressed
+            border = COLORS.BorderHover
+        elseif live and hovering then
+            bg = COLORS.BackgroundHover
+            border = COLORS.BorderHover
+        end
         tweenService:Create(container, TWEEN_INFO, { BackgroundColor3 = bg }):Play()
         tweenService:Create(containerStroke, TWEEN_INFO, { Color = border }):Play()
     end
@@ -170,7 +192,7 @@ Elements.Register("Button", function(section, options)
         if destroyed then return end
         label.TextColor3 = data.disabled and COLORS.TextDisabled or COLORS.TextActive
         clickArea.Active = not data.disabled
-        tweenHover(hovering and not data.disabled)
+        updateState()
     end
 
     local function fireCallback()
@@ -185,18 +207,34 @@ Elements.Register("Button", function(section, options)
         fireCallback()
     end
 
-    connect(clickArea.MouseButton1Click, press)
+    connect(clickArea.Activated, press)
 
     connect(clickArea.MouseEnter, function()
+        if usingTouch() then return end
         hovering = true
-        if data.disabled then return end
-        tweenHover(true)
+        updateState()
     end)
 
     connect(clickArea.MouseLeave, function()
         hovering = false
-        if data.disabled then return end
-        tweenHover(false)
+        pressed = false
+        updateState()
+    end)
+
+    connect(clickArea.InputBegan, function(input)
+        if destroyed or data.disabled then return end
+        if isPointerInput(input) then
+            pressed = true
+            updateState()
+        end
+    end)
+
+    connect(userInputService.InputEnded, function(input)
+        if destroyed or not pressed then return end
+        if isPointerInput(input) then
+            pressed = false
+            updateState()
+        end
     end)
 
     connect(textLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
@@ -211,6 +249,9 @@ Elements.Register("Button", function(section, options)
     function data:SetDisabled(value)
         if destroyed then return end
         data.disabled = value == true
+        if data.disabled then
+            pressed = false
+        end
         updateVisuals()
     end
 

@@ -8,6 +8,7 @@ Elements.Register("Dropdown", function(section, options)
         TextDisabled = Color3.fromRGB(60, 60, 68),
         FieldBg = Color3.fromRGB(22, 22, 22),
         FieldBorder = Color3.fromRGB(38, 38, 38),
+        FieldBorderHover = Color3.fromRGB(70, 70, 80),
         RowBg = Color3.fromRGB(20, 20, 20),
         RowHover = Color3.fromRGB(30, 30, 30),
         RowSelected = Color3.fromRGB(36, 36, 36),
@@ -18,23 +19,26 @@ Elements.Register("Dropdown", function(section, options)
         Icon = Color3.fromRGB(100, 100, 110),
     }
 
-    local TITLE_SIZE = 12
-    local DESC_SIZE = 10
-    local LABEL_SIZE = 11
-    local ROW_H = 40
-    local FIELD_W = 150
-    local FIELD_H = 24
-    local OPT_H = 30
-    local MAX_H = 180
-    local ANIM_T = 0.12
-    local WORD_BREAK = 20
-    local Z = 900
-
     local tweenService = TweenService or game:GetService("TweenService")
     local userInputService = UserInputService or game:GetService("UserInputService")
     local runService = game:GetService("RunService")
     local fontRegular = FONT or Enum.Font.SourceSans
     local fontTitle = FONT or Enum.Font.SourceSansSemibold
+
+    local MOBILE = userInputService.TouchEnabled and not userInputService.KeyboardEnabled
+
+    local TITLE_SIZE = MOBILE and 13 or 12
+    local DESC_SIZE = MOBILE and 11 or 10
+    local LABEL_SIZE = MOBILE and 12 or 11
+    local ROW_H = MOBILE and 46 or 40
+    local FIELD_W = MOBILE and 140 or 150
+    local FIELD_MIN_W = 96
+    local FIELD_H = MOBILE and 32 or 24
+    local OPT_H = MOBILE and 38 or 30
+    local MAX_H = MOBILE and 220 or 180
+    local ANIM_T = 0.12
+    local WORD_BREAK = 20
+    local Z = 900
 
     local TI_FAST = TweenInfo.new(0.1)
     local TI_ROW = TweenInfo.new(0.09)
@@ -46,10 +50,14 @@ Elements.Register("Dropdown", function(section, options)
     local connections = {}
     local rowConnections = {}
     local destroyed = false
+    local opening = false
     local followConn
     local closeTween
     local closeTweenConn
     local openTween
+    local origin = Vector2.new(0, 0)
+    local originMeasured = false
+    local fieldHover = false
 
     local function connect(signal, fn)
         local conn = signal:Connect(fn)
@@ -59,7 +67,7 @@ Elements.Register("Dropdown", function(section, options)
 
     local function warnf(msg)
         pcall(function()
-            Notify({ Title = "CodyWas | Dropdown", Description = msg, Duration = 5 })
+            Notify({ Title = "Ecohub | Dropdown", Description = msg, Duration = 5 })
         end)
     end
 
@@ -90,6 +98,10 @@ Elements.Register("Dropdown", function(section, options)
     local function isPointerInput(input)
         return input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch
+    end
+
+    local function usingTouch()
+        return userInputService:GetLastInputType() == Enum.UserInputType.Touch
     end
 
     local function isInside(guiObject, pos)
@@ -248,12 +260,27 @@ Elements.Register("Dropdown", function(section, options)
     fieldIcon.ImageColor3 = COLORS.Icon
     fieldIcon.Parent = field
 
+    local function applyWidth()
+        if destroyed then return end
+        local width = container.AbsoluteSize.X
+        local fieldW = FIELD_W
+        if width > 0 then
+            fieldW = math.clamp(math.floor(width * 0.5), FIELD_MIN_W, FIELD_W)
+        end
+        field.Size = UDim2.new(0, fieldW, 0, FIELD_H)
+        textSide.Size = UDim2.new(1, -(fieldW + 16), 1, 0)
+    end
+
+    connect(container:GetPropertyChangedSignal("AbsoluteSize"), applyWidth)
+    applyWidth()
+
     local overlay = Instance.new("Frame")
     overlay.Name = title .. "_Overlay"
     overlay.BackgroundColor3 = COLORS.OverlayBg
     overlay.BorderSizePixel = 0
     overlay.Size = UDim2.fromOffset(0, 0)
     overlay.Visible = false
+    overlay.Active = true
     overlay.ZIndex = Z
     overlay.ClipsDescendants = true
     overlay.Parent = screenGui or container
@@ -274,9 +301,10 @@ Elements.Register("Dropdown", function(section, options)
     scroll.Position = UDim2.new(0, 2, 0, 2)
     scroll.BackgroundTransparency = 1
     scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 2
+    scroll.ScrollBarThickness = MOBILE and 3 or 2
     scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 90)
     scroll.ScrollBarImageTransparency = 0
+    scroll.ScrollingDirection = Enum.ScrollingDirection.Y
     scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     scroll.ZIndex = Z
@@ -357,6 +385,12 @@ Elements.Register("Dropdown", function(section, options)
         end
     end
 
+    local function updateFieldBorder()
+        if destroyed then return end
+        local hot = (fieldHover or data.expanded) and not data.disabled
+        tw(fStroke, TI_HOVER, { Color = hot and COLORS.FieldBorderHover or COLORS.FieldBorder })
+    end
+
     local function updateRow(row, animate)
         local sel = isSelected(row.value)
         local bg = sel and COLORS.RowSelected or COLORS.RowBg
@@ -375,17 +409,27 @@ Elements.Register("Dropdown", function(section, options)
         if not ok then warnf("callback: " .. tostring(err)) end
     end
 
-    local function getOverlayH()
-        return math.min(listLayout.AbsoluteContentSize.Y + 6, MAX_H)
+    local function getScreenH()
+        local cam = workspace.CurrentCamera
+        return cam and cam.ViewportSize.Y or 600
+    end
+
+    local function getOverlayH(screenH)
+        return math.min(listLayout.AbsoluteContentSize.Y + 6, MAX_H, math.floor(screenH * 0.5))
     end
 
     local function computePlacement()
-        local cam = workspace.CurrentCamera
         local fPos = field.AbsolutePosition
         local fSize = field.AbsoluteSize
-        local h = getOverlayH()
-        local screenH = cam and cam.ViewportSize.Y or 600
-        local goUp = (screenH - fPos.Y - fSize.Y) < h + 6
+        local screenH = getScreenH()
+        local h = getOverlayH(screenH)
+        local below = screenH - (fPos.Y + fSize.Y) - 8
+        local above = fPos.Y - 8
+        local goUp = below < h + 6 and above > below
+        local avail = goUp and above or below
+        if h + 6 > avail then
+            h = math.max(math.floor(avail - 6), math.min(h, OPT_H + 6))
+        end
         local startY = goUp and (fPos.Y - 4) or (fPos.Y + fSize.Y + 4)
         local endY = goUp and (fPos.Y - h - 4) or (fPos.Y + fSize.Y + 4)
         return fPos, fSize, h, startY, endY
@@ -426,7 +470,7 @@ Elements.Register("Dropdown", function(section, options)
                 return
             end
         end
-        overlay.Position = UDim2.fromOffset(fPos.X, endY)
+        overlay.Position = UDim2.fromOffset(fPos.X - origin.X, endY - origin.Y)
         overlay.Size = UDim2.fromOffset(fSize.X, h)
     end
 
@@ -441,6 +485,7 @@ Elements.Register("Dropdown", function(section, options)
         stopFollow()
         cancelTweens()
         tw(fieldIcon, TI_ICON, { Rotation = 0 })
+        updateFieldBorder()
 
         if instant then
             overlay.Visible = false
@@ -547,6 +592,7 @@ Elements.Register("Dropdown", function(section, options)
             updateRow(row, false)
 
             table.insert(rowConnections, btn.MouseEnter:Connect(function()
+                if usingTouch() then return end
                 if not isSelected(value) and not data.disabled then
                     tw(optFrame, TI_HOVER, { BackgroundColor3 = COLORS.RowHover })
                 end
@@ -556,7 +602,7 @@ Elements.Register("Dropdown", function(section, options)
                     tw(optFrame, TI_HOVER, { BackgroundColor3 = COLORS.RowBg })
                 end
             end))
-            table.insert(rowConnections, btn.MouseButton1Click:Connect(function()
+            table.insert(rowConnections, btn.Activated:Connect(function()
                 selectValue(value)
             end))
         end
@@ -565,35 +611,73 @@ Elements.Register("Dropdown", function(section, options)
     local openedAt = 0
 
     local function openOverlay()
-        if destroyed or data.disabled or data.expanded or #values == 0 then return end
+        if destroyed or data.disabled or data.expanded or opening or #values == 0 then return end
         data.expanded = true
+        opening = true
         openedAt = os.clock()
         cancelTweens()
+        updateFieldBorder()
 
         task.defer(function()
-            if destroyed or not data.expanded then return end
+            if destroyed or not data.expanded then
+                opening = false
+                return
+            end
+
+            if not originMeasured or not screenGui then
+                overlay.AnchorPoint = Vector2.new(0, 0)
+                overlay.Size = UDim2.fromOffset(1, 1)
+                overlay.Position = UDim2.fromOffset(0, 0)
+                overlay.Visible = true
+                runService.RenderStepped:Wait()
+                if destroyed then
+                    opening = false
+                    return
+                end
+                origin = overlay.AbsolutePosition
+                originMeasured = true
+                if not data.expanded then
+                    overlay.Visible = false
+                    overlay.Size = UDim2.fromOffset(0, 0)
+                    opening = false
+                    return
+                end
+            end
+
             local fPos, fSize, h, startY, endY = computePlacement()
 
             overlay.Size = UDim2.fromOffset(fSize.X, 0)
-            overlay.Position = UDim2.fromOffset(fPos.X, startY)
+            overlay.Position = UDim2.fromOffset(fPos.X - origin.X, startY - origin.Y)
             overlay.Visible = true
 
             tw(fieldIcon, TI_ICON, { Rotation = 180 })
             openTween = tweenService:Create(overlay, TI_OPEN, {
                 Size = UDim2.fromOffset(fSize.X, h),
-                Position = UDim2.fromOffset(fPos.X, endY),
+                Position = UDim2.fromOffset(fPos.X - origin.X, endY - origin.Y),
             })
             openTween:Play()
             startFollow()
+            opening = false
         end)
     end
 
-    connect(field.MouseButton1Click, function()
+    connect(field.Activated, function()
         if data.expanded then
             closeOverlay(false)
         else
             openOverlay()
         end
+    end)
+
+    connect(field.MouseEnter, function()
+        if usingTouch() then return end
+        fieldHover = true
+        updateFieldBorder()
+    end)
+
+    connect(field.MouseLeave, function()
+        fieldHover = false
+        updateFieldBorder()
     end)
 
     connect(userInputService.InputBegan, function(input)
@@ -695,6 +779,7 @@ Elements.Register("Dropdown", function(section, options)
         if data.disabled then closeOverlay(true) end
         for _, row in ipairs(optRows) do updateRow(row, false) end
         updateField(true)
+        updateFieldBorder()
     end
 
     function data:SetTitle(newTitle)
