@@ -219,36 +219,32 @@ Elements.Register("Checkbox", function(section, options)
         TextInactive = Color3.fromRGB(105, 105, 115),
         TextDisabled = Color3.fromRGB(70, 70, 78),
         Line = Color3.fromRGB(32, 32, 32),
-        BoxHover = Color3.fromRGB(90, 90, 100),
         Icon = Color3.fromRGB(20, 20, 20),
         DescriptionText = Color3.fromRGB(105, 105, 115),
         KeyBindBg = Color3.fromRGB(30, 30, 32),
         KeyBindBorder = Color3.fromRGB(55, 55, 60),
         KeyBindText = Color3.fromRGB(180, 180, 190),
+        KeyBindHover = Color3.fromRGB(40, 40, 44),
         KeyBindListening = Color3.fromRGB(50, 50, 56),
         KeyBindListenText = Color3.fromRGB(220, 220, 255),
     }
+
+    local TITLE_SIZE = 13
+    local DESC_SIZE = 11
+    local KEY_SIZE = 11
+    local BOX = 18
+    local HITBOX_PAD = 10 -- expande a area de toque do quadrado sem mudar o visual
+    local PILL_W = 46
+    local PILL_H = 20
+    local WORD_MAX = 20
+    local BASE_H = 36
 
     local userInputService = UserInputService or game:GetService("UserInputService")
     local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
     local fontRegular = FONT or Enum.Font.SourceSans
 
-    local MOBILE = userInputService.TouchEnabled and not userInputService.KeyboardEnabled
-
-    local TITLE_SIZE = MOBILE and 14 or 13
-    local DESC_SIZE = MOBILE and 12 or 11
-    local KEY_SIZE = 11
-    local BOX = MOBILE and 22 or 18
-    local HITBOX_PAD = MOBILE and 11 or 10
-    local CHECK_SIZE = MOBILE and 14 or 12
-    local PILL_W = 46
-    local PILL_H = 20
-    local WORD_MAX = 20
-    local BASE_H = MOBILE and 44 or 36
-
     local connections = {}
     local destroyed = false
-    local hovering = false
     local listeningConnection
     local listenStartedAt = 0
 
@@ -260,18 +256,14 @@ Elements.Register("Checkbox", function(section, options)
 
     local function warnNotify(msg)
         pcall(function()
-            Notify({ Title = "Ecohub | Checkbox", Description = msg, Duration = 5 })
+            Notify({ Title = "CodyWas | Checkbox", Description = msg, Duration = 5 })
         end)
     end
 
     local function infoNotify(msg)
         pcall(function()
-            Notify({ Title = "Ecohub | KeyBind", Description = msg, Duration = 3 })
+            Notify({ Title = "CodyWas | KeyBind", Description = msg, Duration = 3 })
         end)
-    end
-
-    local function usingTouch()
-        return userInputService:GetLastInputType() == Enum.UserInputType.Touch
     end
 
     local function breakLongWords(text, maxLen)
@@ -374,7 +366,6 @@ Elements.Register("Checkbox", function(section, options)
     end
 
     local hasKeybind = options.keybind ~= nil
-    local showKeybind = hasKeybind and not MOBILE
 
     local data = {
         state = default,
@@ -383,8 +374,8 @@ Elements.Register("Checkbox", function(section, options)
         listening = false,
     }
 
-    local rightReserve = MOBILE and (BOX + HITBOX_PAD * 2 + 4) or (BOX + 4)
-    if showKeybind then
+    local rightReserve = BOX + 4
+    if hasKeybind then
         rightReserve = rightReserve + PILL_W + 6
     end
 
@@ -394,6 +385,7 @@ Elements.Register("Checkbox", function(section, options)
     container.BackgroundTransparency = 1
     container.Parent = section.frame
 
+    -- Area de texto: apenas exibe titulo/descricao, NAO ativa o checkbox
     local textFrame = Instance.new("Frame")
     textFrame.Name = "TextFrame"
     textFrame.Size = UDim2.new(1, -rightReserve, 1, 0)
@@ -441,6 +433,8 @@ Elements.Register("Checkbox", function(section, options)
         descLabel.Parent = textFrame
     end
 
+    -- Botao real do quadrado. Hitbox maior que o visual (HITBOX_PAD) pra
+    -- funcionar bem no toque, mas so ativa se clicar/tocar NELE, nao no resto.
     local boxButton = Instance.new("TextButton")
     boxButton.Name = "BoxButton"
     boxButton.Size = UDim2.new(0, BOX + HITBOX_PAD * 2, 0, BOX + HITBOX_PAD * 2)
@@ -474,7 +468,7 @@ Elements.Register("Checkbox", function(section, options)
 
     local checkIcon = Instance.new("ImageLabel")
     checkIcon.Name = "Check"
-    checkIcon.Size = UDim2.new(0, CHECK_SIZE, 0, CHECK_SIZE)
+    checkIcon.Size = UDim2.new(0, 12, 0, 12)
     checkIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
     checkIcon.AnchorPoint = Vector2.new(0.5, 0.5)
     checkIcon.BackgroundTransparency = 1
@@ -485,7 +479,7 @@ Elements.Register("Checkbox", function(section, options)
     checkIcon.Parent = box
 
     local keyBtn, keyLabel, keyStroke
-    if showKeybind then
+    if hasKeybind then
         keyBtn = Instance.new("TextButton")
         keyBtn.Name = "KeyBind"
         keyBtn.Size = UDim2.new(0, PILL_W, 0, PILL_H)
@@ -534,11 +528,12 @@ Elements.Register("Checkbox", function(section, options)
         container.Size = UDim2.new(1, 0, 0, totalH)
     end
 
+    -- Sem tweens: aplica o estado visual instantaneamente
     local function updateVisuals()
         if destroyed then return end
 
         local boxColor = data.state and COLORS.Active or COLORS.Inactive
-        local strokeColor = data.state and COLORS.Active or (hovering and COLORS.BoxHover or COLORS.Line)
+        local strokeColor = data.state and COLORS.Active or COLORS.Line
         local checkT = data.state and 0 or 1
         local textColor = data.state and COLORS.TextActive or COLORS.TextInactive
 
@@ -599,7 +594,7 @@ Elements.Register("Checkbox", function(section, options)
     end
 
     local function enterListenMode()
-        if destroyed or not keyBtn or data.disabled or data.listening then return end
+        if destroyed or not hasKeybind or data.disabled or data.listening then return end
         data.listening = true
         listenStartedAt = os.clock()
 
@@ -636,6 +631,7 @@ Elements.Register("Checkbox", function(section, options)
         end)
     end
 
+    -- Toggle via keybind global (funciona igual antes)
     if hasKeybind then
         connect(userInputService.InputBegan, function(input, gp)
             if destroyed or gp or data.disabled or data.listening then return end
@@ -647,21 +643,20 @@ Elements.Register("Checkbox", function(section, options)
         end)
     end
 
-    connect(boxButton.Activated, toggle)
+    -- Ativa o checkbox APENAS pelo quadrado (boxButton), com hitbox
+    -- ampliada para toque. Funciona com mouse (PC) e touch (mobile) porque
+    -- MouseButton1Click do TextButton dispara em ambos automaticamente.
+    connect(boxButton.MouseButton1Click, toggle)
 
-    connect(boxButton.MouseEnter, function()
-        if usingTouch() then return end
-        hovering = true
-        updateVisuals()
+    -- Suporte extra explicito a touch (alguns executores/clientes mobile
+    -- nao repassam MouseButton1Click corretamente para TextButton)
+    connect(boxButton.TouchTap, function()
+        toggle()
     end)
 
-    connect(boxButton.MouseLeave, function()
-        hovering = false
-        updateVisuals()
-    end)
-
-    if keyBtn then
-        connect(keyBtn.Activated, enterListenMode)
+    if hasKeybind then
+        connect(keyBtn.MouseButton1Click, enterListenMode)
+        connect(keyBtn.TouchTap, enterListenMode)
     end
 
     connect(textLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeContainer)
