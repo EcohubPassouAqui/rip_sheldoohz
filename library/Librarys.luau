@@ -327,12 +327,36 @@ Elements.Register("Checkbox", function(section, options)
 
     local function getKeyName(binding)
         if not binding then return "None" end
-        return KEY_NAMES[binding] or tostring(binding):match("%.(%w+)$") or "?"
+        local name = KEY_NAMES[binding]
+        if name then return name end
+        -- fallback: pega o nome direto do EnumItem (ex: Enum.KeyCode.Semicolon -> "Semicolon")
+        local ok, result = pcall(function() return binding.Name end)
+        if ok and type(result) == "string" and result ~= "" then
+            return result
+        end
+        return "?"
     end
 
     local function isValidBinding(binding)
         if typeof(binding) ~= "EnumItem" then return false end
         return binding.EnumType == Enum.KeyCode or binding.EnumType == Enum.UserInputType
+    end
+
+    -- Aceita Enum.KeyCode.E, Enum.UserInputType.MouseButton1 ou string ("E", "F5", "MouseButton1")
+    local function normalizeBinding(binding)
+        if typeof(binding) == "EnumItem" then
+            return binding
+        end
+        if type(binding) == "string" and binding ~= "" then
+            local candidates = { binding, binding:upper(), binding:sub(1, 1):upper() .. binding:sub(2) }
+            for _, name in ipairs(candidates) do
+                local ok, res = pcall(function() return Enum.KeyCode[name] end)
+                if ok and res then return res end
+                ok, res = pcall(function() return Enum.UserInputType[name] end)
+                if ok and res then return res end
+            end
+        end
+        return nil
     end
 
     local function matchInput(binding, input)
@@ -350,7 +374,7 @@ Elements.Register("Checkbox", function(section, options)
     local default = (options.default or options.Default) == true
     local disabled = options.disabled == true
     local callback = options.callback or options.Callback
-    local keybind = options.keybind
+    local keybind = normalizeBinding(options.keybind)
     local keybindCb = options.keybindCallback
 
     if type(callback) ~= "function" then
@@ -374,7 +398,9 @@ Elements.Register("Checkbox", function(section, options)
         listening = false,
     }
 
-    local rightReserve = BOX + 4
+    -- Reserva a area da direita pro quadrado (com hitbox) e pra pilula do keybind,
+    -- assim o texto nao fica por baixo deles.
+    local rightReserve = BOX + HITBOX_PAD * 2 + 4
     if hasKeybind then
         rightReserve = rightReserve + PILL_W + 6
     end
@@ -454,6 +480,7 @@ Elements.Register("Checkbox", function(section, options)
     box.AnchorPoint = Vector2.new(0.5, 0.5)
     box.BackgroundColor3 = default and COLORS.Active or COLORS.Inactive
     box.BorderSizePixel = 0
+    box.ZIndex = 3
     box.Parent = boxButton
 
     local boxCorner = Instance.new("UICorner")
@@ -476,6 +503,7 @@ Elements.Register("Checkbox", function(section, options)
     checkIcon.ImageColor3 = COLORS.Icon
     checkIcon.ImageTransparency = default and 0 or 1
     checkIcon.Selectable = false
+    checkIcon.ZIndex = 4
     checkIcon.Parent = box
 
     local keyBtn, keyLabel, keyStroke
@@ -490,6 +518,7 @@ Elements.Register("Checkbox", function(section, options)
         keyBtn.Text = ""
         keyBtn.AutoButtonColor = false
         keyBtn.Selectable = false
+        keyBtn.ClipsDescendants = true
         keyBtn.ZIndex = 2
         keyBtn.Parent = container
 
@@ -503,17 +532,24 @@ Elements.Register("Checkbox", function(section, options)
         keyStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         keyStroke.Parent = keyBtn
 
+        -- CORRECAO: o texto da tecla precisa ter ZIndex MAIOR que o botao (keyBtn),
+        -- senao ele fica escondido atras do fundo da pilula.
         keyLabel = Instance.new("TextLabel")
         keyLabel.Name = "KeyLabel"
         keyLabel.Size = UDim2.new(1, 0, 1, 0)
+        keyLabel.Position = UDim2.new(0, 0, 0, 0)
         keyLabel.BackgroundTransparency = 1
         keyLabel.Text = getKeyName(data.keybind)
         keyLabel.TextColor3 = COLORS.KeyBindText
+        keyLabel.TextTransparency = 0
         keyLabel.TextSize = KEY_SIZE
         keyLabel.Font = fontBold
         keyLabel.TextXAlignment = Enum.TextXAlignment.Center
         keyLabel.TextYAlignment = Enum.TextYAlignment.Center
+        keyLabel.TextWrapped = false
         keyLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        keyLabel.Visible = true
+        keyLabel.ZIndex = 4
         keyLabel.Parent = keyBtn
     end
 
@@ -631,7 +667,7 @@ Elements.Register("Checkbox", function(section, options)
         end)
     end
 
-    -- Toggle via keybind global (funciona igual antes)
+    -- Toggle via keybind global
     if hasKeybind then
         connect(userInputService.InputBegan, function(input, gp)
             if destroyed or gp or data.disabled or data.listening then return end
@@ -721,6 +757,7 @@ Elements.Register("Checkbox", function(section, options)
 
     function data:SetKeybind(newBind)
         if destroyed then return end
+        newBind = normalizeBinding(newBind)
         if newBind ~= nil and not isValidBinding(newBind) then
             warnNotify(("Checkbox '%s': keybind invalido."):format(title))
             return
