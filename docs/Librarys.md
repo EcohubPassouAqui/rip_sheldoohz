@@ -2,12 +2,12 @@
 
 ```md
 -- // Games
-local Librarys = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/CodywasLIbrarys.luau"))()
+local Librarys = loadstring(game:HttpGet("https://raw.githubusercontent.com/EcohubPassouAqui/rip_sheldoohz/refs/heads/main/library/Librarys.luau"))()
 
 local Window = Librarys:CreateWindow({
-    Title = "CODY WAS [Midnight Chasers]",
+    Title = "Eco Hub",
     SubTitle = "by rip_sheldoohz",
-    Size = UDim2.fromOffset(550, 350),
+    Size = UDim2.fromOffset(580, 350),
     MinimizeKey = Enum.KeyCode.RightShift,
 })
 
