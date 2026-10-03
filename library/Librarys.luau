@@ -2448,56 +2448,41 @@ Elements.Register("ColorPicker", function(section, options)
         TextInactive = Color3.fromRGB(105, 105, 115),
         TextDisabled = Color3.fromRGB(70, 70, 78),
         Line = Color3.fromRGB(32, 32, 32),
-        LineHover = Color3.fromRGB(70, 70, 80),
         Field = Color3.fromRGB(24, 24, 24),
+        FieldAlt = Color3.fromRGB(30, 30, 30),
         MenuBackground = Color3.fromRGB(18, 18, 18),
+        SectionBackground = Color3.fromRGB(22, 22, 22),
         DescriptionText = Color3.fromRGB(105, 105, 115),
+        Accent = Color3.fromRGB(255, 255, 255),
     }
+
+    local TITLE_TEXT_SIZE = 12
+    local DESCRIPTION_TEXT_SIZE = 10
+    local LABEL_TEXT_SIZE = 11
+    local ROW_HEIGHT = 50
+    local FIELD_WIDTH = 120
+    local FIELD_HEIGHT = 28
+    local OVERLAY_ZINDEX = 1000
+    local WORD_MAX = 30
+    local MAP_HEIGHT = 130
+    local HUE_HEIGHT = 18
+    local ALPHA_HEIGHT = 18
+    local OVERLAY_PADDING = 14
+    local OVERLAY_GAP = 14
+    local OVERLAY_HEIGHT = (OVERLAY_PADDING * 2) + MAP_HEIGHT + HUE_HEIGHT + ALPHA_HEIGHT + (OVERLAY_GAP * 2)
 
     local tweenService = TweenService or game:GetService("TweenService")
     local userInputService = UserInputService or game:GetService("UserInputService")
-    local runService = game:GetService("RunService")
     local fontBold = FONT_BOLD or Enum.Font.SourceSansBold
     local fontRegular = FONT or Enum.Font.SourceSans
 
-    local MOBILE = userInputService.TouchEnabled and not userInputService.KeyboardEnabled
-
-    local TITLE_TEXT_SIZE = MOBILE and 13 or 12
-    local DESCRIPTION_TEXT_SIZE = MOBILE and 11 or 10
-    local LABEL_TEXT_SIZE = MOBILE and 12 or 11
-    local ROW_HEIGHT = MOBILE and 54 or 50
-    local FIELD_WIDTH = 120
-    local FIELD_MIN_W = 84
-    local FIELD_HEIGHT = MOBILE and 32 or 28
-    local OVERLAY_ZINDEX = 1000
-    local WORD_MAX = 30
-    local MAP_HEIGHT = MOBILE and 140 or 130
-    local HUE_HEIGHT = MOBILE and 26 or 18
-    local ALPHA_HEIGHT = MOBILE and 26 or 18
-    local CURSOR_SIZE = MOBILE and 24 or 18
-    local BAR_CURSOR_W = MOBILE and 8 or 6
-    local OVERLAY_PADDING = 14
-    local OVERLAY_GAP = MOBILE and 16 or 14
-    local OVERLAY_MIN_W = 200
-    local OVERLAY_HEIGHT = (OVERLAY_PADDING * 2) + MAP_HEIGHT + HUE_HEIGHT + ALPHA_HEIGHT + (OVERLAY_GAP * 2)
-    local EDGE = 8
-    local GAP = 6
-
     local TI_OPEN = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local TI_CLOSE = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-    local TI_HOVER = TweenInfo.new(0.08)
 
     local connections = {}
     local destroyed = false
-    local opening = false
     local closeTween
     local closeTweenConn
-    local followConn
-    local origin = Vector2.new(0, 0)
-    local originMeasured = false
-    local overlayWidth = OVERLAY_MIN_W
-    local openUp = false
-    local fieldHover = false
 
     local function connect(signal, fn)
         local conn = signal:Connect(fn)
@@ -2507,7 +2492,7 @@ Elements.Register("ColorPicker", function(section, options)
 
     local function warnf(msg)
         pcall(function()
-            Notify({ Title = "Ecohub | ColorPicker", Description = msg, Duration = 5 })
+            Notify({ Title = "CodyWas | ColorPicker", Description = msg, Duration = 5 })
         end)
     end
 
@@ -2554,20 +2539,6 @@ Elements.Register("ColorPicker", function(section, options)
         return pos.X >= p.X and pos.X <= p.X + s.X and pos.Y >= p.Y and pos.Y <= p.Y + s.Y
     end
 
-    local function isPointerInput(input)
-        return input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch
-    end
-
-    local function usingTouch()
-        return userInputService:GetLastInputType() == Enum.UserInputType.Touch
-    end
-
-    local function getViewport()
-        local cam = workspace.CurrentCamera
-        return cam and cam.ViewportSize or Vector2.new(1280, 720)
-    end
-
     local title = tostring(options.title or options.Name or "Color")
     local description = tostring(options.description or "")
     local defaultColor = options.default or options.Default
@@ -2595,8 +2566,6 @@ Elements.Register("ColorPicker", function(section, options)
     }
 
     local hue, sat, vib = Color3.toHSV(data.value)
-
-    local screenGui = section.frame:FindFirstAncestorWhichIsA("ScreenGui")
 
     local container = Instance.new("Frame")
     container.Name = title .. "_ColorPicker"
@@ -2723,20 +2692,6 @@ Elements.Register("ColorPicker", function(section, options)
     fieldLabel.ZIndex = 11
     fieldLabel.Parent = fieldColor
 
-    local function applyWidth()
-        if destroyed then return end
-        local width = container.AbsoluteSize.X
-        local fieldW = FIELD_WIDTH
-        if width > 0 then
-            fieldW = math.clamp(math.floor(width * 0.45), FIELD_MIN_W, FIELD_WIDTH)
-        end
-        field.Size = UDim2.new(0, fieldW, 0, FIELD_HEIGHT)
-        textContainer.Size = UDim2.new(1, -(fieldW + 16), 1, 0)
-    end
-
-    connect(container:GetPropertyChangedSignal("AbsoluteSize"), applyWidth)
-    applyWidth()
-
     local overlayCanvas = Instance.new("Frame")
     overlayCanvas.Name = title .. "_PickerOverlay"
     overlayCanvas.Size = UDim2.new(0, 0, 0, 0)
@@ -2744,9 +2699,8 @@ Elements.Register("ColorPicker", function(section, options)
     overlayCanvas.BorderSizePixel = 0
     overlayCanvas.ClipsDescendants = true
     overlayCanvas.Visible = false
-    overlayCanvas.Active = true
     overlayCanvas.ZIndex = OVERLAY_ZINDEX
-    overlayCanvas.Parent = screenGui or container
+    overlayCanvas.Parent = container
 
     local overlayCorner = Instance.new("UICorner")
     overlayCorner.CornerRadius = UDim.new(0, 8)
@@ -2776,7 +2730,6 @@ Elements.Register("ColorPicker", function(section, options)
     satVibMap.Image = "rbxassetid://4155801252"
     satVibMap.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
     satVibMap.BorderSizePixel = 0
-    satVibMap.Active = true
     satVibMap.LayoutOrder = 1
     satVibMap.ZIndex = OVERLAY_ZINDEX + 1
     satVibMap.Parent = overlayCanvas
@@ -2793,7 +2746,7 @@ Elements.Register("ColorPicker", function(section, options)
 
     local satCursorOuter = Instance.new("Frame")
     satCursorOuter.Name = "SatCursorOuter"
-    satCursorOuter.Size = UDim2.fromOffset(CURSOR_SIZE, CURSOR_SIZE)
+    satCursorOuter.Size = UDim2.fromOffset(18, 18)
     satCursorOuter.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     satCursorOuter.BackgroundTransparency = 0.35
     satCursorOuter.BorderSizePixel = 0
@@ -2806,7 +2759,7 @@ Elements.Register("ColorPicker", function(section, options)
 
     local satCursor = Instance.new("Frame")
     satCursor.Name = "SatCursor"
-    satCursor.Size = UDim2.fromOffset(CURSOR_SIZE - 4, CURSOR_SIZE - 4)
+    satCursor.Size = UDim2.fromOffset(14, 14)
     satCursor.Position = UDim2.new(0.5, 0, 0.5, 0)
     satCursor.AnchorPoint = Vector2.new(0.5, 0.5)
     satCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -2828,7 +2781,6 @@ Elements.Register("ColorPicker", function(section, options)
     hueSlider.Name = "HueSlider"
     hueSlider.Size = UDim2.new(1, 0, 0, HUE_HEIGHT)
     hueSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    hueSlider.Active = true
     hueSlider.LayoutOrder = 2
     hueSlider.BorderSizePixel = 0
     hueSlider.ZIndex = OVERLAY_ZINDEX + 1
@@ -2857,7 +2809,7 @@ Elements.Register("ColorPicker", function(section, options)
 
     local hueCursor = Instance.new("Frame")
     hueCursor.Name = "HueCursor"
-    hueCursor.Size = UDim2.fromOffset(BAR_CURSOR_W, HUE_HEIGHT + 4)
+    hueCursor.Size = UDim2.fromOffset(6, HUE_HEIGHT + 4)
     hueCursor.Position = UDim2.new(0, 0, 0.5, 0)
     hueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
     hueCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -2879,7 +2831,6 @@ Elements.Register("ColorPicker", function(section, options)
     alphaSlider.Name = "AlphaSlider"
     alphaSlider.Size = UDim2.new(1, 0, 0, ALPHA_HEIGHT)
     alphaSlider.BackgroundColor3 = COLORS.Field
-    alphaSlider.Active = true
     alphaSlider.LayoutOrder = 3
     alphaSlider.BorderSizePixel = 0
     alphaSlider.ZIndex = OVERLAY_ZINDEX + 1
@@ -2933,7 +2884,7 @@ Elements.Register("ColorPicker", function(section, options)
 
     local alphaCursor = Instance.new("Frame")
     alphaCursor.Name = "AlphaCursor"
-    alphaCursor.Size = UDim2.fromOffset(BAR_CURSOR_W, ALPHA_HEIGHT + 4)
+    alphaCursor.Size = UDim2.fromOffset(6, ALPHA_HEIGHT + 4)
     alphaCursor.Position = UDim2.new(0, 0, 0.5, 0)
     alphaCursor.AnchorPoint = Vector2.new(0.5, 0.5)
     alphaCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -2967,16 +2918,10 @@ Elements.Register("ColorPicker", function(section, options)
         field.BackgroundTransparency = data.disabled and 0.5 or 0
     end
 
-    local function updateFieldBorder()
-        if destroyed then return end
-        local hot = (fieldHover or data.opened) and not data.disabled
-        tweenService:Create(fieldStroke, TI_HOVER, { Color = hot and COLORS.LineHover or COLORS.Line }):Play()
-    end
-
     local function display()
         if destroyed then return end
         satVibMap.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
-        satCursorOuter.Position = UDim2.new(sat, -CURSOR_SIZE / 2, 1 - vib, -CURSOR_SIZE / 2)
+        satCursorOuter.Position = UDim2.new(sat, -9, 1 - vib, -9)
         hueCursor.Position = UDim2.new(hue, 0, 0.5, 0)
         alphaCursor.Position = UDim2.new(data.transparency, 0, 0.5, 0)
 
@@ -2987,7 +2932,6 @@ Elements.Register("ColorPicker", function(section, options)
     display()
 
     local dragging = nil
-    local activeInput
     local openedAt = 0
     local dragEndedAt = 0
 
@@ -2997,31 +2941,35 @@ Elements.Register("ColorPicker", function(section, options)
             local maxX = minX + satVibMap.AbsoluteSize.X
             local minY = satVibMap.AbsolutePosition.Y
             local maxY = minY + satVibMap.AbsoluteSize.Y
-            local pointX = math.clamp(inputPos.X, minX, maxX)
-            local pointY = math.clamp(inputPos.Y, minY, maxY)
-            if maxX > minX then sat = (pointX - minX) / (maxX - minX) end
-            if maxY > minY then vib = 1 - ((pointY - minY) / (maxY - minY)) end
+            local mouseX = math.clamp(inputPos.X, minX, maxX)
+            local mouseY = math.clamp(inputPos.Y, minY, maxY)
+            if maxX > minX then sat = (mouseX - minX) / (maxX - minX) end
+            if maxY > minY then vib = 1 - ((mouseY - minY) / (maxY - minY)) end
         elseif kind == "hue" then
             local minX = hueSlider.AbsolutePosition.X
             local maxX = minX + hueSlider.AbsoluteSize.X
-            local pointX = math.clamp(inputPos.X, minX, maxX)
-            if maxX > minX then hue = (pointX - minX) / (maxX - minX) end
+            local mouseX = math.clamp(inputPos.X, minX, maxX)
+            if maxX > minX then hue = (mouseX - minX) / (maxX - minX) end
         elseif kind == "alpha" then
             local minX = alphaSlider.AbsolutePosition.X
             local maxX = minX + alphaSlider.AbsoluteSize.X
-            local pointX = math.clamp(inputPos.X, minX, maxX)
-            if maxX > minX then data.transparency = (pointX - minX) / (maxX - minX) end
+            local mouseX = math.clamp(inputPos.X, minX, maxX)
+            if maxX > minX then data.transparency = (mouseX - minX) / (maxX - minX) end
         end
         display()
         fireCallback()
     end
 
+    local function isPointerInput(input)
+        return input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch
+    end
+
     local function bindDrag(gui, kind)
         connect(gui.InputBegan, function(input)
-            if destroyed or data.disabled or dragging then return end
+            if destroyed or data.disabled then return end
             if isPointerInput(input) then
                 dragging = kind
-                activeInput = input
                 updateFromInput(kind, input.Position)
             end
         end)
@@ -3032,25 +2980,23 @@ Elements.Register("ColorPicker", function(section, options)
     bindDrag(alphaSlider, "alpha")
 
     connect(userInputService.InputChanged, function(input)
-        if destroyed or not dragging or not activeInput then return end
-        if activeInput.UserInputType == Enum.UserInputType.Touch then
-            if input ~= activeInput then return end
-        elseif input.UserInputType ~= Enum.UserInputType.MouseMovement then
-            return
+        if destroyed or not dragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            updateFromInput(dragging, input.Position)
         end
-        updateFromInput(dragging, input.Position)
     end)
 
     connect(userInputService.InputEnded, function(input)
-        if not dragging or not activeInput then return end
-        if input == activeInput
-        or (activeInput.UserInputType == Enum.UserInputType.MouseButton1
-            and input.UserInputType == Enum.UserInputType.MouseButton1) then
+        if isPointerInput(input) and dragging then
             dragging = nil
-            activeInput = nil
             dragEndedAt = os.clock()
         end
     end)
+
+    local function positionOverlay()
+        overlayCanvas.Position = UDim2.new(1, -0, 0, ROW_HEIGHT + 6)
+        overlayCanvas.AnchorPoint = Vector2.new(1, 0)
+    end
 
     local function disconnectCloseTween()
         if closeTweenConn then
@@ -3063,118 +3009,32 @@ Elements.Register("ColorPicker", function(section, options)
         end
     end
 
-    local function stopFollow()
-        if followConn then
-            followConn:Disconnect()
-            followConn = nil
-        end
-    end
-
     local closeMenu
 
-    local function reposition()
-        if destroyed or not overlayCanvas.Visible then return end
-        local vp = getViewport()
-        local fPos = field.AbsolutePosition
-        local fSize = field.AbsoluteSize
-
-        if data.opened and (fPos.Y + fSize.Y < 0 or fPos.Y > vp.Y or fPos.X + fSize.X < 0 or fPos.X > vp.X) then
-            closeMenu(true)
-            return
-        end
-
-        local currentH = overlayCanvas.Size.Y.Offset
-        local x = math.clamp(fPos.X + fSize.X - overlayWidth, EDGE, math.max(EDGE, vp.X - overlayWidth - EDGE))
-        local y
-        if openUp then
-            y = fPos.Y - GAP - currentH
-        else
-            y = fPos.Y + fSize.Y + GAP
-        end
-        y = math.clamp(y, EDGE, math.max(EDGE, vp.Y - currentH - EDGE))
-
-        overlayCanvas.Position = UDim2.fromOffset(x - origin.X, y - origin.Y)
-    end
-
-    local function startFollow()
-        stopFollow()
-        followConn = runService.RenderStepped:Connect(reposition)
-    end
-
     local function openMenu()
-        if destroyed or data.disabled or data.opened or opening then return end
+        if destroyed or data.disabled or data.opened then return end
         data.opened = true
-        opening = true
         openedAt = os.clock()
+
         disconnectCloseTween()
-        updateFieldBorder()
+        positionOverlay()
 
-        task.defer(function()
-            if destroyed or not data.opened then
-                opening = false
-                return
-            end
-
-            if not originMeasured or not screenGui then
-                overlayCanvas.AnchorPoint = Vector2.new(0, 0)
-                overlayCanvas.Size = UDim2.fromOffset(1, 1)
-                overlayCanvas.Position = UDim2.fromOffset(0, 0)
-                overlayCanvas.Visible = true
-                runService.RenderStepped:Wait()
-                if destroyed then
-                    opening = false
-                    return
-                end
-                origin = overlayCanvas.AbsolutePosition
-                originMeasured = true
-                if not data.opened then
-                    overlayCanvas.Visible = false
-                    overlayCanvas.Size = UDim2.new(0, 0, 0, 0)
-                    opening = false
-                    return
-                end
-            end
-
-            local vp = getViewport()
-            local fPos = field.AbsolutePosition
-            local fSize = field.AbsoluteSize
-            overlayWidth = math.min(math.max(container.AbsoluteSize.X, OVERLAY_MIN_W), vp.X - EDGE * 2)
-
-            local below = vp.Y - (fPos.Y + fSize.Y) - GAP - EDGE
-            local above = fPos.Y - GAP - EDGE
-            openUp = below < OVERLAY_HEIGHT and above > below
-
-            overlayCanvas.Size = UDim2.fromOffset(overlayWidth, 0)
-            overlayCanvas.Visible = true
-            reposition()
-
-            tweenService:Create(overlayCanvas, TI_OPEN, { Size = UDim2.fromOffset(overlayWidth, OVERLAY_HEIGHT) }):Play()
-            startFollow()
-            opening = false
-        end)
+        local width = math.max(container.AbsoluteSize.X, 200)
+        overlayCanvas.Size = UDim2.new(0, width, 0, 0)
+        overlayCanvas.Visible = true
+        tweenService:Create(overlayCanvas, TI_OPEN, { Size = UDim2.new(0, width, 0, OVERLAY_HEIGHT) }):Play()
     end
 
-    closeMenu = function(instant)
+    closeMenu = function()
         if not data.opened then return end
         data.opened = false
         dragging = nil
-        activeInput = nil
-        updateFieldBorder()
 
         disconnectCloseTween()
-
-        if instant then
-            stopFollow()
-            overlayCanvas.Visible = false
-            overlayCanvas.Size = UDim2.new(0, 0, 0, 0)
-            return
-        end
-
-        closeTween = tweenService:Create(overlayCanvas, TI_CLOSE, { Size = UDim2.fromOffset(overlayWidth, 0) })
+        closeTween = tweenService:Create(overlayCanvas, TI_CLOSE, { Size = UDim2.new(0, overlayCanvas.AbsoluteSize.X, 0, 0) })
         closeTweenConn = closeTween.Completed:Connect(function()
             if not data.opened and not destroyed then
                 overlayCanvas.Visible = false
-                stopFollow()
             end
             if closeTweenConn then
                 closeTweenConn:Disconnect()
@@ -3184,23 +3044,12 @@ Elements.Register("ColorPicker", function(section, options)
         closeTween:Play()
     end
 
-    connect(field.Activated, function()
+    connect(field.MouseButton1Click, function()
         if data.opened then
-            closeMenu(false)
+            closeMenu()
         else
             openMenu()
         end
-    end)
-
-    connect(field.MouseEnter, function()
-        if usingTouch() then return end
-        fieldHover = true
-        updateFieldBorder()
-    end)
-
-    connect(field.MouseLeave, function()
-        fieldHover = false
-        updateFieldBorder()
     end)
 
     connect(userInputService.InputBegan, function(input)
@@ -3211,7 +3060,7 @@ Elements.Register("ColorPicker", function(section, options)
 
         local pos = Vector2.new(input.Position.X, input.Position.Y)
         if not isInside(overlayCanvas, pos) and not isInside(field, pos) then
-            closeMenu(false)
+            closeMenu()
         end
     end)
 
@@ -3265,9 +3114,8 @@ Elements.Register("ColorPicker", function(section, options)
         data.disabled = value == true
         applyDisabledVisual()
         if data.disabled and data.opened then
-            closeMenu(false)
+            closeMenu()
         end
-        updateFieldBorder()
     end
 
     function data:SetTitle(newTitle)
@@ -3299,13 +3147,12 @@ Elements.Register("ColorPicker", function(section, options)
     end
 
     function data:Close()
-        closeMenu(false)
+        closeMenu()
     end
 
     function data:Destroy()
         if destroyed then return end
         destroyed = true
-        stopFollow()
         disconnectCloseTween()
         for _, conn in ipairs(connections) do
             conn:Disconnect()
