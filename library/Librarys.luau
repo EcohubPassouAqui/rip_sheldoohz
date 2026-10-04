@@ -2507,6 +2507,11 @@ Elements.Register("ColorPicker", function(section, options)
     local OVERLAY_PADDING = 14
     local OVERLAY_GAP = 14
     local OVERLAY_HEIGHT = (OVERLAY_PADDING * 2) + MAP_HEIGHT + HUE_HEIGHT + ALPHA_HEIGHT + (OVERLAY_GAP * 2)
+    local OVERLAY_OFFSET = ROW_HEIGHT + 6
+    -- Altura total do elemento quando o menu esta aberto (linha + espaco + menu).
+    -- O menu agora ocupa espaco de verdade no layout, empurrando os elementos de baixo
+    -- e fazendo o scroll da aba crescer junto.
+    local TOTAL_OPEN_HEIGHT = OVERLAY_OFFSET + OVERLAY_HEIGHT + 6
 
     local tweenService = TweenService or game:GetService("TweenService")
     local userInputService = UserInputService or game:GetService("UserInputService")
@@ -2518,8 +2523,8 @@ Elements.Register("ColorPicker", function(section, options)
 
     local connections = {}
     local destroyed = false
-    local closeTween
-    local closeTweenConn
+    local activeTweens = {}
+    local tweenDoneConn
 
     local function connect(signal, fn)
         local conn = signal:Connect(fn)
@@ -2613,7 +2618,7 @@ Elements.Register("ColorPicker", function(section, options)
 
     local textContainer = Instance.new("Frame")
     textContainer.Name = "TextContainer"
-    textContainer.Size = UDim2.new(1, -(FIELD_WIDTH + 16), 1, 0)
+    textContainer.Size = UDim2.new(1, -(FIELD_WIDTH + 16), 0, ROW_HEIGHT)
     textContainer.BackgroundTransparency = 1
     textContainer.Parent = container
 
@@ -2666,10 +2671,11 @@ Elements.Register("ColorPicker", function(section, options)
 
     layoutText()
 
+    -- O campo de cor fica sempre fixo na linha de cima (nao acompanha o crescimento do container)
     local field = Instance.new("TextButton")
     field.Name = "Field"
     field.Size = UDim2.new(0, FIELD_WIDTH, 0, FIELD_HEIGHT)
-    field.Position = UDim2.new(1, 0, 0.5, 0)
+    field.Position = UDim2.new(1, 0, 0, ROW_HEIGHT / 2)
     field.AnchorPoint = Vector2.new(1, 0.5)
     field.BackgroundColor3 = COLORS.Field
     field.BorderSizePixel = 0
@@ -2729,9 +2735,14 @@ Elements.Register("ColorPicker", function(section, options)
     fieldLabel.ZIndex = 11
     fieldLabel.Parent = fieldColor
 
+    -- O menu agora e filho do container e ocupa espaco real: ao abrir, o container
+    -- cresce junto (veja animateMenu), entao os elementos de baixo descem e o scroll
+    -- da aba aumenta, em vez do menu ficar flutuando por cima de tudo.
     local overlayCanvas = Instance.new("Frame")
     overlayCanvas.Name = title .. "_PickerOverlay"
-    overlayCanvas.Size = UDim2.new(0, 0, 0, 0)
+    overlayCanvas.Size = UDim2.new(1, 0, 0, 0)
+    overlayCanvas.Position = UDim2.new(0, 0, 0, OVERLAY_OFFSET)
+    overlayCanvas.AnchorPoint = Vector2.new(0, 0)
     overlayCanvas.BackgroundColor3 = COLORS.MenuBackground
     overlayCanvas.BorderSizePixel = 0
     overlayCanvas.ClipsDescendants = true
@@ -3030,20 +3041,49 @@ Elements.Register("ColorPicker", function(section, options)
         end
     end)
 
-    local function positionOverlay()
-        overlayCanvas.Position = UDim2.new(1, -0, 0, ROW_HEIGHT + 6)
-        overlayCanvas.AnchorPoint = Vector2.new(1, 0)
+    local function disconnectTweens()
+        if tweenDoneConn then
+            tweenDoneConn:Disconnect()
+            tweenDoneConn = nil
+        end
+        for _, tween in ipairs(activeTweens) do
+            tween:Cancel()
+        end
+        table.clear(activeTweens)
     end
 
-    local function disconnectCloseTween()
-        if closeTweenConn then
-            closeTweenConn:Disconnect()
-            closeTweenConn = nil
+    -- Anima o menu e o container juntos: o container cresce/encolhe junto com o menu,
+    -- empurrando os elementos de baixo (e o scroll) de forma natural.
+    local function animateMenu(open)
+        disconnectTweens()
+
+        local info = open and TI_OPEN or TI_CLOSE
+        local overlayHeight = open and OVERLAY_HEIGHT or 0
+        local containerHeight = open and TOTAL_OPEN_HEIGHT or ROW_HEIGHT
+
+        local overlayTween = tweenService:Create(overlayCanvas, info, {
+            Size = UDim2.new(1, 0, 0, overlayHeight),
+        })
+        local containerTween = tweenService:Create(container, info, {
+            Size = UDim2.new(1, 0, 0, containerHeight),
+        })
+
+        activeTweens = { overlayTween, containerTween }
+
+        if not open then
+            tweenDoneConn = overlayTween.Completed:Connect(function()
+                if not data.opened and not destroyed then
+                    overlayCanvas.Visible = false
+                end
+                if tweenDoneConn then
+                    tweenDoneConn:Disconnect()
+                    tweenDoneConn = nil
+                end
+            end)
         end
-        if closeTween then
-            closeTween:Cancel()
-            closeTween = nil
-        end
+
+        overlayTween:Play()
+        containerTween:Play()
     end
 
     local closeMenu
@@ -3053,32 +3093,15 @@ Elements.Register("ColorPicker", function(section, options)
         data.opened = true
         openedAt = os.clock()
 
-        disconnectCloseTween()
-        positionOverlay()
-
-        local width = math.max(container.AbsoluteSize.X, 200)
-        overlayCanvas.Size = UDim2.new(0, width, 0, 0)
         overlayCanvas.Visible = true
-        tweenService:Create(overlayCanvas, TI_OPEN, { Size = UDim2.new(0, width, 0, OVERLAY_HEIGHT) }):Play()
+        animateMenu(true)
     end
 
     closeMenu = function()
         if not data.opened then return end
         data.opened = false
         dragging = nil
-
-        disconnectCloseTween()
-        closeTween = tweenService:Create(overlayCanvas, TI_CLOSE, { Size = UDim2.new(0, overlayCanvas.AbsoluteSize.X, 0, 0) })
-        closeTweenConn = closeTween.Completed:Connect(function()
-            if not data.opened and not destroyed then
-                overlayCanvas.Visible = false
-            end
-            if closeTweenConn then
-                closeTweenConn:Disconnect()
-                closeTweenConn = nil
-            end
-        end)
-        closeTween:Play()
+        animateMenu(false)
     end
 
     connect(field.MouseButton1Click, function()
@@ -3190,7 +3213,7 @@ Elements.Register("ColorPicker", function(section, options)
     function data:Destroy()
         if destroyed then return end
         destroyed = true
-        disconnectCloseTween()
+        disconnectTweens()
         for _, conn in ipairs(connections) do
             conn:Disconnect()
         end
